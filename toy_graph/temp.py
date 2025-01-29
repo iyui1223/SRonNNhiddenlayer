@@ -33,7 +33,7 @@ class Multiply_layer(Math_layer):
     def forward(self, x, weight):
         self.x = x
         self.y = weight
-        return np.matmul(self.x, self.y)
+        return np.matmul(self.x.T, self.y)
 
     def backward(self, dout):
         dx = np.matmul(dout, self.y.T)
