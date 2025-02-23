@@ -1,0 +1,16 @@
+# Ignore all .npy files (simulation data)
+*.npy
+
+# Ignore all log files
+*.log
+*.err
+
+# Ignore the temporary work directory
+Work/
+
+# Ignore hidden system files (Mac and Linux)
+.DS_Store
+Thumbs.
+
+# Ignore NFS temporary files
+.nfs*
