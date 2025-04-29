@@ -42,11 +42,15 @@ def main():
     s.simulate(args.ns)
 
     # Save simulation data
-    accel_data = s.get_acceleration()
-    np.save(f"data_{title}.npy", s.data)
-    np.save(f"accel_{title}.npy", accel_data)
+    np.savez_compressed("nbody_simulation.npz",
+                        data=s.data,  # Positions, velocities, masses
+                        accelerations=s.get_acceleration(),  # dv/dt
+                        times=s.times,  # Time steps
+                        num_bodies=s._n,
+                        num_timesteps=s.nt,
+                        spatial_dim=s._dim)
 
-    print(f"Simulation completed. Data saved as 'data_{title}.npy' and 'accel_{title}.npy'.")
+    print(f"Simulation completed. Data saved as nbody_simulation.npz")
 
 if __name__ == "__main__":
     main()

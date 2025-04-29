@@ -1,4 +1,11 @@
 #!/bin/bash
+# creates n-body simulation data output.
+# a conda environment has to be loaded to run
+# 
+# conda activate final 
+# module load gcc/11.3.0
+# sh -eox 1_creat_n-body_simulation_data.sh
+
 
 # User-defined variables
 Root="/home/yi260/final_project"
@@ -28,16 +35,16 @@ ErrFile="${LogDir}/simulation_${sim}_n${n}_dim${dim}_nt${nt}_${timestamp}.err"
 
 {
     echo "[$(date)] Starting simulation: ${sim}, n=${n}, dim=${dim}, nt=${nt}, ns=${ns}"
-    conda activate final  # Ensure Conda is properly initialized
+    conda activate final 
     module load gcc/11.3.0
 
     python "make_simulation_data.py" --sim ${sim} --n ${n} --dim ${dim} --nt ${nt} --ns ${ns} >> "${LogFile}" 2>> "${ErrFile}"
     # Check for simulation output
-    if ls *.npy 1> /dev/null 2>&1; then
-        mv *.npy "${DataDir}/"
+    if ls *.npz 1> /dev/null 2>&1; then
+        mv *.npz "${DataDir}/"
         echo "[$(date)] Simulation data moved to ${DataDir}/" >> "${LogFile}"
     else
-        echo "[$(date)] ERROR: No .npy files found. Simulation might have failed."
+        echo "[$(date)] ERROR: No .npz files found. Simulation might have failed."
     fi
 
     echo "[$(date)] Simulation completed."
@@ -46,7 +53,7 @@ ErrFile="${LogDir}/simulation_${sim}_n${n}_dim${dim}_nt${nt}_${timestamp}.err"
 
 # Cleanup: Remove temporary working directory
 cd "${Root}"
-#rm -rf "${Root}/${Work}"
+rm -rf "${Root}/${Work}"
 
 echo "[$(date)] Temporary work directory removed."
 echo "Log saved to: ${LogFile}"
