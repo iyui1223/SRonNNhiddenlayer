@@ -1,11 +1,6 @@
 #!/bin/bash
-# creates n-body simulation data output.
-# a conda environment has to be loaded to run
-# 
-# conda activate final 
-# module load gcc/11.3.0
-# sh -eox 1_creat_n-body_simulation_data.sh
 
+set -eox
 
 # User-defined variables
 Root="/home/yi260/final_project"
@@ -35,14 +30,17 @@ cd "${Root}/${Work}"
 ln -sf "${SourceDir}/train.py" .
 ln -sf "${DataDir}/nbody_simulation.npz" .
 
+# Initialize conda for bash
+eval "$(conda shell.bash hook)"
+conda activate final 
+module load gcc/11.3.0
+
 # Log file setup
-LogFile="${LogDir}/train_graphnn_on_n-body_data_${timestamp}.log"
-ErrFile="${LogDir}/train_graphnn_on_n-body_data_${timestamp}.err"
+LogFile="${LogDir}/train_graphnn_on_n-body_data.log"
+ErrFile="${LogDir}/train_graphnn_on_n-body_data.err"
 
+# Run training with logging
 {
-    conda activate final 
-    module load gcc/11.3.0
-
     python "train.py" \
         --hidden_dim ${HIDDEN_DIM} \
         --msg_dim ${MSG_DIM} \
@@ -51,8 +49,7 @@ ErrFile="${LogDir}/train_graphnn_on_n-body_data_${timestamp}.err"
         --learning_rate ${LEARNING_RATE} \
         --device ${DEVICE} \
         --data_path ${DATA_PATH} \
-        --checkpoint_dir "${ModelsDir}" \
-        >> "${LogFile}" 2>> "${ErrFile}"
+        --checkpoint_dir "${ModelsDir}"
     
     echo "[$(date)] Training completed."
 
