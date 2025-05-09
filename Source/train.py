@@ -29,13 +29,36 @@ class GraphNetwork(MessagePassing):
             Linear(hidden_dim, out_channels)
         )
 
+        # Add message activations storage
+        self.message_activations = None
+        self._store_messages = False
+
+    def reset_message_activations(self):
+        self.message_activations = {
+            'messages': [],
+            'edge_index': None,
+            'distances': []
+            }
+        self._store_messages = True
+
     def forward(self, x, edge_index):
-        edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
+        self.reset_message_activations()
+        # Store edge_index for this pass
+        self.message_activations['edge_index'] = edge_index.detach().cpu().clone()
         return self.propagate(edge_index, x=x)
 
     def message(self, x_i, x_j):
         edge_features = torch.cat([x_i, x_j], dim=1)
-        return self.message_net(edge_features)
+        messages = self.message_net(edge_features)
+        # Compute distances between x_i and x_j (first ndim are positions)
+        # If x_i and x_j have more than just positions, use the first ndim columns
+        positions_i = x_i[:, :2]  # Default to 2D
+        positions_j = x_j[:, :2]
+        distances = torch.norm(positions_i - positions_j, dim=1)
+        if self._store_messages:
+            self.message_activations['messages'].append(messages.detach().cpu())
+            self.message_activations['distances'].append(distances.detach().cpu())
+        return messages
 
     def aggregate(self, inputs, index, dim_size=None):
         out = torch.zeros(dim_size, inputs.size(1), device=inputs.device)
@@ -107,13 +130,15 @@ class NBodyDataset(Dataset):
 
 
 def find_latest_checkpoint(checkpoint_dir, hidden_dim, msg_dim, batch_size):
-    pattern = re.compile(rf"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e(\\d+)\\.pt")
+    pattern = re.compile(rf"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\d+.pt")
+    print(f"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e.pt")
     max_epoch = 0
     latest_ckpt = None
     for fname in os.listdir(checkpoint_dir):
         match = pattern.match(fname)
         if match:
-            epoch = int(match.group(1))
+            # Extract the epoch number after 'e' and before '.pt'
+            epoch = int(fname.split('_e')[-1].split('.pt')[0])
             if epoch > max_epoch:
                 max_epoch = epoch
                 latest_ckpt = os.path.join(checkpoint_dir, fname)
@@ -160,7 +185,6 @@ def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=N
             torch.save(checkpoint, checkpoint_path)
             print(f"Saved checkpoint to {checkpoint_path}")
 
-
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train N-body Graph Neural Network")
@@ -195,9 +219,14 @@ if __name__ == "__main__":
     # Model prefix for checkpoint naming (no timestamp)
     model_prefix = f"nbody_h{args.hidden_dim}_m{args.msg_dim}_b{args.batch_size}"
 
+
+    print(model_prefix)
+
     # Check for existing checkpoint
     latest_ckpt, current_epochs = find_latest_checkpoint(args.checkpoint_dir, args.hidden_dim, args.msg_dim, args.batch_size)
     print(f"Resuming from checkpoint: {latest_ckpt}" if latest_ckpt else "No checkpoint found, starting from scratch.")
+
+    # breakpoint()
 
     # Initialize model
     model = NbodyGraph(
