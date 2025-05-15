@@ -2,8 +2,8 @@
 #SBATCH --job-name=latent_exp
 #SBATCH --output=/home/yi260/final_project/Log/3output.log
 #SBATCH --error=/home/yi260/final_project/Log/3error.log
-#SBATCH --time=00:10:00                # Max execution time (HH:MM:SS)
-#SBATCH --partition=cclake             
+#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
+#SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
 ##################
@@ -30,13 +30,10 @@ cd "$WORKDIR"
 echo "Setting up working directory..."
 
 ln -sf "${SRC_DIR}/"*.py "$WORKDIR/"
-# ln -sf "${DATA_DIR}/lotka_volterra_data.h5" "$WORKDIR/"
-# ln -sf "${DATA_DIR}/predictions" "$WORKDIR/"
 
 echo "Running batch prediction process..."
 
-python visualize_hidden.py --model_path ../Models/nbody_h32_m16_b1_e11.pt --data_path ../Data/nbody_simulation.npz
-
+python visualize_hidden.py --model_path ../Models/spring-n4-dim2-nt250-ns10000/nbody_h32_m16_b1_e91.pt --data_path ../Data/spring-n4-dim2-nt250-ns10000.npz
 
 echo "Organizing output files..."
 
