@@ -20,6 +20,10 @@ class GraphNetwork(MessagePassing):
         self.message_net = Seq(
             Linear(2 * in_channels, hidden_dim),
             ReLU(),
+            Linear(hidden_dim, hidden_dim),
+            ReLU(),
+            Linear(hidden_dim, hidden_dim),
+            ReLU(),
             Linear(hidden_dim, msg_dim)
         )
 
