@@ -1,16 +1,16 @@
+import argparse
+import os
+import re
 import torch
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-from torch_geometric.data import Data
-from typing import Dict, Any
-import os
+from celluloid import Camera
+from scipy.optimize import minimize
 from copy import copy
-import argparse
-from train import NbodyGraph
+from torch_geometric.data import Data
+from train import NbodyGraph  # Update path if needed
 
-# obtain the prediction and the latent expression of single time step
-# for the given list of initial values
 def single_graph(model, graph_data): 
     model.eval()
     with torch.no_grad():
@@ -75,7 +75,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)  # Bidirectional edges
 
     graphs = []
-    for sim in range(num_simulations):
+    for sim in range(300): #num_simulations):
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
@@ -85,40 +85,98 @@ def create_graphs(npz_path):
             graphs.append(Data(x=x, edge_index=edge_index, y=y))
     return graphs
 
-
-
 def parse_model_params(model_path):
-    """
-    Extract hidden_dim and msg_dim from model_path using naming pattern
-    e.g., 'nbody_h32_m16_b1_e91.pt' → hidden_dim=32, msg_dim=16
-    """
-    import re
-    from pathlib import Path
-    filename = Path(model_path).name
+    filename = os.path.basename(model_path)
     match = re.search(r'nbody_h(\d+)_m(\d+)', filename)
     if not match:
         raise ValueError(f"Could not parse model parameters from: {filename}")
     hidden_dim, msg_dim = map(int, match.groups())
     return hidden_dim, msg_dim
 
-# Example usage
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyze message passing in N-body GNN")
-    parser.add_argument("--model_path", type=str, required=True, help="Path to saved model")
-    parser.add_argument("--data_path", type=str, required=True, help="Path to test data")
-    parser.add_argument("--output_dir", type=str, default="analysis_output", help="Output directory")
 
+def percentile_sum(x):
+    x = x.ravel()
+    bot = x.min()
+    top = np.percentile(x, 90)
+    msk = (x >= bot) & (x <= top)
+    frac_good = (msk).sum() / len(x)
+    return x[msk].sum() / frac_good
+
+
+def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', title="GNN Force Matching"):
+    pos_cols = ['dx', 'dy']
+    fig, axes = plt.subplots(1, dim, figsize=(5 * dim, 5))
+
+    # Handle both single and multiple axes
+    if dim == 1:
+        axes = [axes]
+
+    all_force_proj = [[] for _ in range(dim)]
+    all_msg_comp = [[] for _ in range(dim)]
+
+    for msgs in messages_over_time:
+        msgs = copy(msgs)
+        msgs['bd'] = msgs.r + 1e-2
+
+        msg_columns = [f"e{k+1}" for k in range(msg_dim)]
+        msg_array = np.array(msgs[msg_columns])
+        msg_importance = msg_array.std(axis=0)
+        most_important = np.argsort(msg_importance)[-dim:]
+        msgs_to_compare = msg_array[:, most_important]
+        msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
+
+        force_fnc = lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[pos_cols].to_numpy() / msg['bd'].to_numpy()[:, None]
+        expected_forces = force_fnc(msgs)
+
+        def linear_transformation_2d(alpha):
+            lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
+            lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
+            return (
+                percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
+                percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2)
+            ) / 2.0
+
+        def out_linear_transformation_2d(alpha):
+            lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
+            lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
+            return lin1, lin2
+
+        min_result = minimize(linear_transformation_2d, np.ones(6), method='Powell')
+        lincombs = out_linear_transformation_2d(min_result.x)
+
+        for i in range(dim):
+            all_force_proj[i].append(lincombs[i])
+            all_msg_comp[i].append(msgs_to_compare[:, i])
+
+    for i in range(dim):
+        px = np.concatenate(all_force_proj[i])
+        py = np.concatenate(all_msg_comp[i])
+        axes[i].scatter(px, py, s=1, alpha=0.1, color='black')
+        axes[i].set_xlabel('Linear combination of forces')
+        axes[i].set_ylabel(f'Message Element {i+1}')
+        axes[i].set_title(f'Message {i+1} vs Force Projection')
+        axes[i].grid(True)
+        axes[i].set_xlim(-1, 1)
+        axes[i].set_ylim(-1, 1)
+
+    plt.suptitle(title)
+    plt.tight_layout()
+    plt.savefig("force_message_scatter_all.png")
+    plt.show()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--data_path", type=str, required=True)
     args = parser.parse_args()
 
-    # Extract parameters from filename
     hidden_dim, msg_dim = parse_model_params(args.model_path)
 
-    # Instantiate model using parsed parameters
     model = NbodyGraph(
         in_channels=6,
         hidden_dim=hidden_dim,
         msg_dim=msg_dim,
-        out_channels=2, 
+        out_channels=2,
         dt=0.01,
         nt=1,
         ndim=2
@@ -126,145 +184,25 @@ if __name__ == "__main__":
 
     checkpoint = torch.load(args.model_path, map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
-    trajectory_data = create_graphs(args.data_path)
+    model.eval()
 
-    # Collect data from all simulations
-    all_data = []
-    
-    for graph in trajectory_data[:]:  # Use all simulations
-        data = single_graph(model, graph)
-        if data is not None:
-            all_data.append(data)
-    
-    print(f"Processing {len(all_data)} simulations at t=0")
-    
-    # Create directory for plots
-    os.makedirs('analysis_plots', exist_ok=True)
-    
-    # Create output directory for debug data
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    # Aggregate all messages and forces from all simulations
-    all_msgs = []
-    all_forces = []
-    all_edge_dirs = []
-    all_bd = []
-    all_edge_index = []
-    all_positions = []
-    
+    graphs = create_graphs(args.data_path)
+
+    all_data = [single_graph(model, g) for g in graphs if single_graph(model, g) is not None]
+    print(f"Processed {len(all_data)} simulations")
+
+    messages_over_time = []
     for data in all_data:
-        all_msgs.append(data['messages'])         # [num_edges, msg_dim]
-        all_forces.append(data['src_accels'])     # 
-        all_edge_dirs.append(data['edge_dirs'])
-        all_bd.append(data['distances'] + 1e-2)
-        all_edge_index.append(data['edge_index'])
-        all_positions.append(data['positions'])
-    
-    all_msgs = np.vstack(all_msgs)        # [total_edges, msg_dim]
-    all_forces = np.vstack(all_forces)    # [total_edges, 2]
-    all_edge_dirs = np.vstack(all_edge_dirs)
-    all_bd = np.concatenate(all_bd)
-    all_edge_index = np.hstack(all_edge_index)
-    all_positions = np.vstack(all_positions)
-    
-    # Calculate message importance using standard deviation globally
-    # print(all_msgs.shape)
-    msg_importance = all_msgs.std(axis=0)
-    # print(msg_importance)
-    most_important = np.argsort(msg_importance)[-2:]  # Get top 2 dimensions for 2D visualization
-    # print(msg_importance[most_important])
-    msgs_to_compare = all_msgs[:, most_important]
-    
-    # Normalize messages
-    msgs_to_compare = (msgs_to_compare - np.average(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
-    
-    # Calculate electrostatic forces
-    k = 1.0  # Coulomb constant
-    charges = all_positions[:, -1]  # Assuming charge is stored in the last column
-    
-    # Save debugging information
-    debug_data = {
-        'dx': all_edge_dirs[:, 0],  # x-component of direction vectors
-        'dy': all_edge_dirs[:, 1],  # y-component of direction vectors
-        'source_charges': charges[all_edge_index[0]],  # charges of source nodes
-        'target_charges': charges[all_edge_index[1]],  # charges of target nodes
-        'msgs_to_compare': msgs_to_compare,  # the two most important message components
-        'distances': all_bd,  # distances between nodes
-        'edge_index': all_edge_index,  # edge connectivity
-        'positions': all_positions  # node positions
-    }
-    
-    # Save debugging data
-    debug_file = os.path.join(args.output_dir, 'debug_data.npz')
-    np.savez(debug_file, **debug_data)
-    print(f"Debug data saved to {debug_file}")
-    
-    # Calculate electrostatic forces
-    force_fnc = lambda msg: -(msg['bd'][:, None] - 1) **2 * np.array(msg['edge_dirs'])
-#    force_fnc = lambda msg: -msg['bd'][:, None] * np.array(msg['edge_dirs']) 
-    expected_forces = force_fnc({'edge_index': all_edge_index, 'edge_dirs': all_edge_dirs, 'bd': all_bd})
-    
-    def percentile_sum(x):
-        x = x.ravel()
-        bot = x.min()
-        top = np.percentile(x, 90)
-        msk = (x>=bot) & (x<=top)
-        frac_good = (msk).sum()/len(x)
-        return x[msk].sum()/frac_good
-    
-    from scipy.optimize import minimize
-    
-    def linear_transformation_2d(alpha):
-        lincomb1 = (alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1]) + alpha[2]
-        lincomb2 = (alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1]) + alpha[5]
+        msgs = data['messages']
+        df = pd.DataFrame(msgs, columns=[f"e{i+1}" for i in range(msgs.shape[1])])
+        df['r'] = data['distances']
+        df['bd'] = data['distances'] + 1e-2
+        df['dx'] = data['edge_dirs'][:, 0]
+        df['dy'] = data['edge_dirs'][:, 1]
+        messages_over_time.append(df)
 
-        score = (
-            percentile_sum(np.square(msgs_to_compare[:, 0] - lincomb1)) +
-            percentile_sum(np.square(msgs_to_compare[:, 1] - lincomb2))
-        )/2.0
-        
-        return score
-    
-    def out_linear_transformation_2d(alpha):
-        lincomb1 = (alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1]) + alpha[2]
-        lincomb2 = (alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1]) + alpha[5]
-        return lincomb1, lincomb2
-    
-    # Find best linear transformation
-    min_result = minimize(linear_transformation_2d, np.ones(6), method='Powell')
-    print(f"Optimization score: {min_result.fun/len(all_msgs)}")
-    
-    # Plot results
-    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-    
-    for i in range(2):
-        px = out_linear_transformation_2d(min_result.x)[i]
-        py = msgs_to_compare[:, i]
-        
-        # Use larger points and higher alpha for better visibility
-        ax[i].scatter(px, py, alpha=0.5, s=10, color='k')
-        ax[i].set_xlabel('Linear combination of forces')
-        ax[i].set_ylabel(f'Message Element {i+1}')
-        
-        # Set plot limits using percentiles
-        xlim = np.array([np.percentile(px, q) for q in [1, 99]])  # Use wider range
-        ylim = np.array([np.percentile(py, q) for q in [1, 99]])  # Use wider range
-        
-        # Add some padding
-        x_range = xlim[1] - xlim[0]
-        y_range = ylim[1] - ylim[0]
-        xlim[0] -= x_range * 0.1
-        xlim[1] += x_range * 0.1
-        ylim[0] -= y_range * 0.1
-        ylim[1] += y_range * 0.1
-        
-        ax[i].set_xlim(xlim)
-        ax[i].set_ylim(ylim)
-        
-        # Add grid for better visibility
-        ax[i].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig('analysis_plots/force_vs_message_components.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    
+    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=2)
+
+
+if __name__ == "__main__":
+    main()
