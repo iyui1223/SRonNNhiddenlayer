@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=n-body
+#SBATCH --job-name=train_gnn
 #SBATCH --output=/home/yi260/final_project/Log/2output.log
 #SBATCH --error=/home/yi260/final_project/Log/2error.log
 #SBATCH --time=01:30:00               # Max execution time (HH:MM:SS)
@@ -11,39 +11,23 @@
 ##################
 
 set -eox
-# source ~/.bashrc
+
+# Source constants
+source "${ROOT_DIR}/Const/const.txt"
+
+# Source conda
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
 
 conda init bash
 conda activate final; module load gcc/11.3.0
 
-# User-defined variables
-Root="/home/yi260/final_project"
-Work="Work"
-LogDir="${Root}/Log"
-DataDir="${Root}/Data"
-SourceDir="${Root}/Source"
-
-# Model parameters
-HIDDEN_DIM=256          # Hidden dimension size
-MSG_DIM=128            # Message dimension size
-EPOCHS=32             # Number of training epochs
-BATCH_SIZE=1         # Batch size for training
-LEARNING_RATE=0.001  # Learning rate
-DEVICE="cpu"         # Device to use (cpu/cuda)
-DATA_NAME="spring-n4-dim2-nt250-ns10000.npz"  # Path to the simulation data
-ModelsDir="${Root}/Models/${DATA_NAME/.npz/}"
-
-# Timestamp for log files
-timestamp=$(date +"%Y%m%d_%H%M%S")
-
 # Create necessary directories
-mkdir -p "${Root}/${Work}" "${LogDir}" "${ModelsDir}"
+mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${MODELS_DIR}/${DATA_NAME/.npz/}"
 
-cd "${Root}/${Work}"
+cd "${ROOT_DIR}/${WORK_DIR}"
 
-ln -sf "${SourceDir}/train.py" .
-ln -sf "${DataDir}/${DATA_NAME}" .
+ln -sf "${SOURCE_DIR}/train.py" .
+ln -sf "${DATA_DIR}/${DATA_NAME}.npz" .
 
 # Initialize conda for bash
 eval "$(conda shell.bash hook)"
@@ -58,15 +42,14 @@ python "train.py" \
     --batch_size ${BATCH_SIZE} \
     --learning_rate ${LEARNING_RATE} \
     --device ${DEVICE} \
-    --data_path ${DATA_NAME} \
-    --checkpoint_dir "${ModelsDir}"
+    --data_path "${DATA_NAME}.npz" \
+    --checkpoint_dir "${MODELS_DIR}/${DATA_NAME/.npz/}"
 
 echo "[$(date)] Training completed."
 
 # Cleanup: Remove temporary working directory
-cd "${Root}"
-# rm -rf "${Root}/${Work}"
+cd "${ROOT_DIR}"
+# rm -rf "${ROOT_DIR}/${WORK_DIR}"
 
 echo "[$(date)] Temporary work directory removed."
-echo "Log saved to: ${LogFile}"
-echo "Model checkpoints saved in: ${ModelsDir}"
+echo "Model checkpoints saved in: ${MODELS_DIR}/${DATA_NAME/.npz/}"

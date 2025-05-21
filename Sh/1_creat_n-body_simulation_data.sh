@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=n-body
+#SBATCH --job-name=n-body-simulation
 #SBATCH --output=/home/yi260/final_project/Log/1output.log
 #SBATCH --error=/home/yi260/final_project/Log/1error.log
 #SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
@@ -11,6 +11,9 @@
 ##################
 
 set -eox
+
+# Source constants
+source "${ROOT_DIR}/Const/const.txt"
 
 # Check if conda is available
 if ! command -v conda &> /dev/null; then
@@ -34,50 +37,36 @@ if ! module load gcc/11.3.0; then
     exit 1
 fi
 
-# User-defined variables
-Root="/home/yi260/final_project"
-Work="Work"
-LogDir="${Root}/Log"
-DataDir="${Root}/Data"
-SourceDir="${Root}/Source"
-sim="spring"  # Changed to spring simulation
-n=4
-dim=2
-nt=250
-ns=10000
-
-# Timestamp for log files
-timestamp=$(date +"%Y%m%d_%H%M%S")
-
 # Create necessary directories
-mkdir -p "${Root}/${Work}" "${LogDir}" "${DataDir}"
+mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${DATA_DIR}"
 
-cd "${Root}/${Work}"
+cd "${ROOT_DIR}/${WORK_DIR}"
 
-# Check if source files exist
-if [ ! -f "${SourceDir}/simulate.py" ] || [ ! -f "${SourceDir}/make_simulation_data.py" ]; then
-    echo "Error: Required source files not found"
-    exit 1
-fi
-
-ln -sf "${SourceDir}/simulate.py" .
-ln -sf "${SourceDir}/make_simulation_data.py" .
+ln -sf "${SOURCE_DIR}/simulate.py" .
+ln -sf "${SOURCE_DIR}/make_simulation_data.py" .
 
 # Log file setup
-LogFile="${LogDir}/simulation_${sim}_n${n}_dim${dim}_nt${nt}_${timestamp}.log"
-ErrFile="${LogDir}/simulation_${sim}_n${n}_dim${dim}_nt${nt}_${timestamp}.err"
+timestamp=$(date +%Y%m%d_%H%M%S)
+LogFile="${LOG_DIR}/simulation_${DATA_NAME}_${timestamp}.log"
+ErrFile="${LOG_DIR}/simulation_${DATA_NAME}_${timestamp}.err"
 
-echo "[$(date)] Starting simulation: ${sim}, n=${n}, dim=${dim}, nt=${nt}, ns=${ns}"
+echo "[$(date)] Starting simulation: ${SIM_TYPE}, n=${N_BODIES}, dim=${DIMENSIONS}, nt=${NUM_TIMESTEPS}, ns=${NUM_SAMPLES}"
 echo "[$(date)] Python version: $(python --version)"
 echo "[$(date)] JAX version: $(python -c 'import jax; print(jax.__version__)')"
 
 # Run simulation
-python "make_simulation_data.py" --sim ${sim} --n ${n} --dim ${dim} --nt ${nt} --ns ${ns} >> "${LogFile}" 2>> "${ErrFile}"
+python "make_simulation_data.py" \
+    --sim ${SIM_TYPE} \
+    --n ${N_BODIES} \
+    --dim ${DIMENSIONS} \
+    --nt ${NUM_TIMESTEPS} \
+    --ns ${NUM_SAMPLES} \
+    >> "${LogFile}" 2>> "${ErrFile}"
 
-# Check for simulation output
+# Check for simulation output and move to final location
 if ls *.npz 1> /dev/null 2>&1; then
-    mv nbody_simulation.npz "${DataDir}/${sim}-n${n}-dim${dim}-nt${nt}-ns${ns}.npz"
-    echo "[$(date)] Simulation data moved to ${DataDir}/"
+    mv nbody_simulation.npz "${DATA_DIR}/${DATA_NAME}.npz"
+    echo "[$(date)] Simulation data moved to ${DATA_DIR}/"
 else
     echo "[$(date)] ERROR: No .npz files found. Simulation might have failed."
     exit 1
@@ -86,7 +75,7 @@ fi
 echo "[$(date)] Simulation completed successfully."
 
 # Cleanup: Remove temporary working directory
-cd "${Root}"
-# rm -rf "${Root}/${Work}"
-
-echo "[$(date)] Temporary work directory removed."
+cd "${ROOT_DIR}"
+# do not remove temporary dir for debugging
+# rm -rf "${ROOT_DIR}/${WORK_DIR}"
+# echo "[$(date)] Temporary work directory removed."
