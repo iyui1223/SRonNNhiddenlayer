@@ -3,8 +3,9 @@
 #SBATCH --output=/home/yi260/final_project/Log/2output.log
 #SBATCH --error=/home/yi260/final_project/Log/2error.log
 #SBATCH --time=01:30:00               # Max execution time (HH:MM:SS)
-#SBATCH --partition=icelake
-#SBATCH -A MPHIL-DIS-SL2-CPU
+#SBATCH --partition=ampere
+#SBATCH --gres=gpu:4
+#SBATCH -A MPHIL-DIS-SL2-GPU
 
 ##################
 #### editable ####
