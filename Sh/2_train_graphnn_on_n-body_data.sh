@@ -2,7 +2,7 @@
 #SBATCH --job-name=n-body
 #SBATCH --output=/home/yi260/final_project/Log/2output.log
 #SBATCH --error=/home/yi260/final_project/Log/2error.log
-#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=01:30:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -25,9 +25,9 @@ DataDir="${Root}/Data"
 SourceDir="${Root}/Source"
 
 # Model parameters
-HIDDEN_DIM=32          # Hidden dimension size
-MSG_DIM=16            # Message dimension size
-EPOCHS=100             # Number of training epochs
+HIDDEN_DIM=256          # Hidden dimension size
+MSG_DIM=128            # Message dimension size
+EPOCHS=32             # Number of training epochs
 BATCH_SIZE=1         # Batch size for training
 LEARNING_RATE=0.001  # Learning rate
 DEVICE="cpu"         # Device to use (cpu/cuda)

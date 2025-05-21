@@ -24,6 +24,13 @@ SRC_DIR="${ROOT_DIR}/Source"
 DATA_DIR="${ROOT_DIR}/Data"
 LOG_DIR="${ROOT_DIR}/Log"
 
+HIDDEN_DIM=256          # Hidden dimension size
+MSG_DIM=128            # Message dimension size
+NUM_TIMESTEPS=125      # Number of timesteps to evaluate
+DEVICE="cpu"          # Device to use (cpu/cuda)
+MODEL_NAME="nbody_h${HIDDEN_DIM}_m${MSG_DIM}_b1_e11.pt"
+DATA_NAME="spring-n4-dim2-nt250-ns10000"
+
 mkdir -p "$WORKDIR" 
 cd "$WORKDIR"
 
@@ -33,8 +40,10 @@ ln -sf "${SRC_DIR}/"*.py "$WORKDIR/"
 
 echo "Running batch prediction process..."
 
-python visualize_hidden.py --model_path ../Models/spring-n4-dim2-nt250-ns10000/nbody_h32_m16_b1_e91.pt --data_path ../Data/spring-n4-dim2-nt250-ns10000.npz
+MODEL_PATH="../Models/${DATA_NAME}/${MODEL_NAME}"
+DATA_PATH="${DATA_DIR}/${DATA_NAME}.npz"
 
-echo "Organizing output files..."
+python visualize_hidden.py \
+    --model_path "$MODEL_PATH" \
+    --data_path "$DATA_PATH" \
 
-echo "All files have been moved successfully."

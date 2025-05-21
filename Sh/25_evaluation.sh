@@ -18,11 +18,11 @@ conda init bash
 conda activate final; module load gcc/11.3.0
 
 # Model parameters
-HIDDEN_DIM=32          # Hidden dimension size
-MSG_DIM=16            # Message dimension size
+HIDDEN_DIM=256          # Hidden dimension size
+MSG_DIM=128            # Message dimension size
 NUM_TIMESTEPS=125      # Number of timesteps to evaluate
 DEVICE="cpu"          # Device to use (cpu/cuda)
-MODEL_NAME="nbody_h32_m16_b1_e11.pt"
+MODEL_NAME="nbody_h${HIDDEN_DIM}_m${MSG_DIM}_b1_e11.pt"
 DATA_NAME="spring-n4-dim2-nt250-ns10000"
 
 # Define directories
@@ -52,7 +52,5 @@ python evaluation.py \
     --hidden_dim "${HIDDEN_DIM}" \
     --msg_dim "${MSG_DIM}" \
     --num_timesteps "${NUM_TIMESTEPS}"
-
-echo "Organizing output files..."
 
 echo "All files have been moved successfully."
