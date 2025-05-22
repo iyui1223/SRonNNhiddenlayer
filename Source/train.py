@@ -52,7 +52,7 @@ class GraphNetwork(MessagePassing):
     def forward(self, x, edge_index):
         self.reset_message_activations()
         # Store edge_index for this pass
-        self.message_activations['edge_index'] = edge_index.detach().cpu().clone()
+        self.message_activations['edge_index'] = edge_index.detach().clone()
         return self.propagate(edge_index, x=x)
 
     def message(self, x_i, x_j):
@@ -64,8 +64,8 @@ class GraphNetwork(MessagePassing):
         positions_j = x_j[:, :2]
         distances = torch.norm(positions_i - positions_j, dim=1)
         if self._store_messages:
-            self.message_activations['messages'].append(messages.detach().cpu())
-            self.message_activations['distances'].append(distances.detach().cpu())
+            self.message_activations['messages'].append(messages.detach())
+            self.message_activations['distances'].append(distances.detach())
         return messages
 
     def aggregate(self, inputs, index, dim_size=None):
@@ -153,7 +153,26 @@ def find_latest_checkpoint(checkpoint_dir, hidden_dim, msg_dim, batch_size):
     return latest_ckpt, max_epoch
 
 
+def get_device(device_arg):
+    """
+    Get the appropriate device based on user argument and system availability.
+    Args:
+        device_arg (str): User's device choice ('cpu' or 'cuda')
+    Returns:
+        torch.device: The appropriate device to use
+    """
+    if device_arg == 'cuda':
+        if not torch.cuda.is_available():
+            print("Warning: CUDA requested but not available. Falling back to CPU.")
+            return torch.device('cpu')
+        return torch.device('cuda')
+    return torch.device('cpu')
+
+
 def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0):
+    device = get_device(device)  # Convert string to torch.device
+    print(f"Using device: {device}")
+    
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = torch.nn.L1Loss()
@@ -206,6 +225,13 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default="Models", help="Directory to save model checkpoints")
     args = parser.parse_args()
 
+    # Get device
+    device = get_device(args.device)
+    print(f"Using device: {device}")
+    if device.type == 'cuda':
+        print(f"CUDA Device: {torch.cuda.get_device_name(0)}")
+        print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+
     # Create checkpoint directory if it doesn't exist
     if not os.path.exists(args.checkpoint_dir):
         os.makedirs(args.checkpoint_dir)
@@ -227,14 +253,11 @@ if __name__ == "__main__":
     # Model prefix for checkpoint naming (no timestamp)
     model_prefix = f"nbody_h{args.hidden_dim}_m{args.msg_dim}_b{args.batch_size}"
 
-
     print(model_prefix)
 
     # Check for existing checkpoint
     latest_ckpt, current_epochs = find_latest_checkpoint(args.checkpoint_dir, args.hidden_dim, args.msg_dim, args.batch_size)
     print(f"Resuming from checkpoint: {latest_ckpt}" if latest_ckpt else "No checkpoint found, starting from scratch.")
-
-    # breakpoint()
 
     # Initialize model
     model = NbodyGraph(
@@ -251,28 +274,21 @@ if __name__ == "__main__":
     dataset = NBodyDataset(positions_velocities, accelerations)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    device = args.device if torch.cuda.is_available() and args.device == 'cuda' else 'cpu'
-
-    # Resume from checkpoint if available
-    if latest_ckpt:
-        checkpoint = torch.load(latest_ckpt, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        # Optionally, you could also restore optimizer state if you want exact resumption
-        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    else:
-        current_epochs = 0
-
-    # Train the model with accumulated epochs
-    train(model, dataloader, 
-          epochs=args.epochs, 
-          lr=args.learning_rate, 
-          device=device,
-          checkpoint_dir=args.checkpoint_dir,
-          model_prefix=model_prefix,
-          start_epoch=current_epochs)
+    # Train model
+    train(
+        model=model,
+        dataloader=dataloader,
+        epochs=args.epochs,
+        lr=args.learning_rate,
+        device=device,
+        checkpoint_dir=args.checkpoint_dir,
+        model_prefix=model_prefix,
+        start_epoch=current_epochs
+    )
 
     # Test forward pass
-    test_graph = test_graph.to(device)
+    model = model.to(device)  # Ensure model is on the correct device
+    test_graph = test_graph.to(device)  # Move test graph to the same device
     output = model(test_graph.x, test_graph.edge_index)
 
     print("Training completed. Model checkpoints saved in:", args.checkpoint_dir)

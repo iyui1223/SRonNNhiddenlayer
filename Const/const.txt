@@ -1,0 +1,35 @@
+# Simulation Parameters
+SIM_TYPE="spring"
+N_BODIES=4
+DIMENSIONS=2
+NUM_TIMESTEPS=250
+NUM_SAMPLES=10000
+
+# Model Parameters
+HIDDEN_DIM=256
+MSG_DIM=128
+EPOCHS=2
+# Compute BATCH_SIZE as max(128 / (N_BODIES^2), 8)
+temp_batch_size=$(echo "scale=0; 256 / ($N_BODIES * $N_BODIES)" | bc)
+if [ "$temp_batch_size" -lt 8 ]; then
+  BATCH_SIZE=8
+else
+  BATCH_SIZE=$temp_batch_size
+fi
+LEARNING_RATE=0.001
+DEVICE="cuda"
+
+# Directory Structure
+ROOT_DIR="/home/yi260/final_project"
+WORK_DIR="Work"
+LOG_DIR="${ROOT_DIR}/Log"
+DATA_DIR="${ROOT_DIR}/Data"
+SOURCE_DIR="${ROOT_DIR}/Source"
+MODELS_DIR="${ROOT_DIR}/Models"
+
+# Derived Names
+DATA_NAME="${SIM_TYPE}-n${N_BODIES}-dim${DIMENSIONS}-nt${NUM_TIMESTEPS}-ns${NUM_SAMPLES}"
+MODEL_NAME="nbody_h${HIDDEN_DIM}_m${MSG_DIM}_b${BATCH_SIZE}_e${EPOCHS}.pt"
+
+
+

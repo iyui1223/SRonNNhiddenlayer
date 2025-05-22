@@ -124,6 +124,9 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', 
         most_important = np.argsort(msg_importance)[-dim:]
         msgs_to_compare = msg_array[:, most_important]
         msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
+        # @@@ let it output the ratio of std of 3 most important messages to the overall std as msg_top3_ratio.txt. It should be averaged over    for msgs in messages_over_time: loop
+        # @@@ as in a header line + name of data+model pathes + 10.3 5.4 3.2 40.9 
+
 
         force_fnc = lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[pos_cols].to_numpy() / msg['bd'].to_numpy()[:, None]
         expected_forces = force_fnc(msgs)
@@ -161,7 +164,7 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', 
 
     plt.suptitle(title)
     plt.tight_layout()
-    plt.savefig("force_message_scatter_all.png")
+    plt.savefig("force_message_relation.png")
     plt.show()
 
 def main():

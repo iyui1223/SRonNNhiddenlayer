@@ -26,11 +26,12 @@ echo "Starting pipeline execution..."
 
 # Submit jobs in sequence
 echo "Submitting simulation data creation job..."
-job1=$(submit_job "1_creat_n-body_simulation_data.sh")
-echo "Job 1 submitted with ID: $job1"
+# job1=$(submit_job "1_creat_n-body_simulation_data.sh")
+# echo "Job 1 submitted with ID: $job1"
 
 echo "Submitting training job..."
-job2=$(submit_job "2_train_graphnn_on_n-body_data.sh" "$job1")
+#job2=$(submit_job "2_train_graphnn_on_n-body_data.sh" "$job1")
+job2=$(submit_job "2_train_graphnn_on_n-body_data.sh")
 echo "Job 2 submitted with ID: $job2"
 
 echo "Submitting evaluation job..."
