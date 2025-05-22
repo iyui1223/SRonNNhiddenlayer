@@ -134,6 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("--hidden_dim", type=int, default=32, help="Hidden dimension size")
     parser.add_argument("--msg_dim", type=int, default=16, help="Message dimension size")
     parser.add_argument("--num_timesteps", type=int, default=50, help="Number of timesteps to evaluate")
+    parser.add_argument("--dt", type=float, required=True, help="Time step size used in simulation")
+    parser.add_argument("--ndim", type=int, required=True, help="Number of spatial dimensions")
     
     args = parser.parse_args()
     
@@ -152,10 +154,10 @@ if __name__ == "__main__":
         in_channels=6,
         hidden_dim=args.hidden_dim,
         msg_dim=args.msg_dim,
-        out_channels=2, 
-        dt=0.01, # should be passed from interface
+        out_channels=args.ndim, 
+        dt=args.dt,
         nt=1,
-        ndim=2
+        ndim=args.ndim
     )
     checkpoint = torch.load(args.model_path, map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])

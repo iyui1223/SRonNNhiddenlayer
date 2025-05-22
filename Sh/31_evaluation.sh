@@ -22,13 +22,8 @@ source "${ROOT_DIR}/Const/const.txt"
 
 # Model parameters
 # @@@make it refer the same parameter sets with other wrapper shells at ../Const/const.txt
-HIDDEN_DIM=256          # Hidden dimension size
-MSG_DIM=128            # Message dimension size
-NUM_TIMESTEPS=125      # Number of timesteps to evaluate
 DEVICE="cpu"          # Device to use (cpu/cuda)
 MODEL_NAME="nbody_h${HIDDEN_DIM}_m${MSG_DIM}_b1_e31.pt"
-# create data name out of the simulation specification in const.txt, as in "${sim}-n${n}-dim${dim}-nt${nt}-ns${ns}.npz"
-DATA_NAME="spring-n4-dim2-nt250-ns10000"
 
 # Define directories
 WORKDIR="${ROOT_DIR}/workdir"
@@ -40,6 +35,7 @@ MODELS_DIR="${ROOT_DIR}/Models"
 # @@@ better store results in each separate directories par models OUTPUT_DIR="${ROOT_DIR}/Figs/evaluation_results/${DATA_NAME/.npz/}"
 OUTPUT_DIR="${ROOT_DIR}/Figs/evaluation_results/"
 
+# Time step size is now defined in const.txt
 
 mkdir -p "$WORKDIR" "$OUTPUT_DIR"
 cd "$WORKDIR"
@@ -57,6 +53,8 @@ python evaluation.py \
     --output_dir "${OUTPUT_DIR}" \
     --hidden_dim "${HIDDEN_DIM}" \
     --msg_dim "${MSG_DIM}" \
-    --num_timesteps "${NUM_TIMESTEPS}"
+    --num_timesteps "${NUM_TIMESTEPS}" \
+    --dt "${DT}" \
+    --ndim "${DIMENSIONS}"
 
 echo "All files have been moved successfully."
