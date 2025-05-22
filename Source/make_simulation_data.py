@@ -38,8 +38,13 @@ def main():
     print(f"Running simulation: {title}")
 
     # Run the simulation
-    s = simulate.SimulationDataset(args.sim, n=args.n, dim=args.dim, nt=args.nt//2, dt=dt)
+    s = simulate.SimulationDataset(args.sim, n=args.n, dim=args.dim, nt=args.nt, dt=dt)
     s.simulate(args.ns)
+
+    # Print data dimensions for debugging
+    print(f"Data shape: {s.data.shape}")
+    print(f"Number of time steps: {s.nt}")
+    print(f"Time array shape: {s.times.shape}")
 
     # Save simulation data
     np.savez_compressed("nbody_simulation.npz",
