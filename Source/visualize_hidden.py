@@ -28,21 +28,22 @@ def single_graph(model, graph_data):
     
     # Get node positions and accelerations
     if hasattr(graph_data, 'y') and graph_data.y is not None:
-        # Get positions (first 2 columns of x) and accelerations
-        positions = graph_data.x[:, :2].cpu().numpy()  # Shape: [num_nodes, 2]
-        accelerations = graph_data.y.cpu().numpy()     # Shape: [num_nodes, 2]
+        ndim = model.ndim  # Get number of dimensions from model
+        # Get positions and accelerations
+        positions = graph_data.x[:, :ndim].cpu().numpy()  # Shape: [num_nodes, ndim]
+        accelerations = graph_data.y.cpu().numpy()     # Shape: [num_nodes, ndim]
         
         # Get source and target nodes for each edge
         src_nodes = edge_index[0].cpu().numpy()
         tgt_nodes = edge_index[1].cpu().numpy()
         
         # Calculate edge direction vectors
-        edge_vecs = positions[tgt_nodes] - positions[src_nodes]  # Shape: [num_edges, 2]
+        edge_vecs = positions[tgt_nodes] - positions[src_nodes]  # Shape: [num_edges, ndim]
         edge_vecs_norm = np.linalg.norm(edge_vecs, axis=1, keepdims=True) + 1e-8
         edge_dirs = edge_vecs / edge_vecs_norm  # Normalized direction vectors
         
         # Get accelerations of source nodes
-        src_accels = accelerations[src_nodes]  # Shape: [num_edges, 2]
+        src_accels = accelerations[src_nodes]  # Shape: [num_edges, ndim]
         
         # Project source node accelerations onto edge directions
         force_along_edge = np.sum(src_accels * edge_dirs, axis=1)  # Shape: [num_edges]
@@ -104,7 +105,7 @@ def percentile_sum(x):
 
 
 def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', title="GNN Force Matching"):
-    pos_cols = ['dx', 'dy']
+    pos_cols = ['dx', 'dy', 'dz'][:dim]  # Handle both 2D and 3D
     fig, axes = plt.subplots(1, dim, figsize=(5 * dim, 5))
 
     # Handle both single and multiple axes
@@ -124,28 +125,43 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', 
         most_important = np.argsort(msg_importance)[-dim:]
         msgs_to_compare = msg_array[:, most_important]
         msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
-        # @@@ let it output the ratio of std of 3 most important messages to the overall std as msg_top3_ratio.txt. It should be averaged over    for msgs in messages_over_time: loop
-        # @@@ as in a header line + name of data+model pathes + 10.3 5.4 3.2 40.9 
-
 
         force_fnc = lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[pos_cols].to_numpy() / msg['bd'].to_numpy()[:, None]
         expected_forces = force_fnc(msgs)
 
-        def linear_transformation_2d(alpha):
-            lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
-            lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
-            return (
-                percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
-                percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2)
-            ) / 2.0
+        def linear_transformation(alpha):
+            if dim == 2:
+                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
+                lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
+                return (
+                    percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
+                    percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2)
+                ) / 2.0
+            else:  # dim == 3
+                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2] * expected_forces[:, 2] + alpha[3]
+                lin2 = alpha[4] * expected_forces[:, 0] + alpha[5] * expected_forces[:, 1] + alpha[6] * expected_forces[:, 2] + alpha[7]
+                lin3 = alpha[8] * expected_forces[:, 0] + alpha[9] * expected_forces[:, 1] + alpha[10] * expected_forces[:, 2] + alpha[11]
+                return (
+                    percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
+                    percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2) +
+                    percentile_sum((msgs_to_compare[:, 2] - lin3) ** 2)
+                ) / 3.0
 
-        def out_linear_transformation_2d(alpha):
-            lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
-            lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
-            return lin1, lin2
+        def out_linear_transformation(alpha):
+            if dim == 2:
+                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
+                lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
+                return lin1, lin2
+            else:  # dim == 3
+                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2] * expected_forces[:, 2] + alpha[3]
+                lin2 = alpha[4] * expected_forces[:, 0] + alpha[5] * expected_forces[:, 1] + alpha[6] * expected_forces[:, 2] + alpha[7]
+                lin3 = alpha[8] * expected_forces[:, 0] + alpha[9] * expected_forces[:, 1] + alpha[10] * expected_forces[:, 2] + alpha[11]
+                return lin1, lin2, lin3
 
-        min_result = minimize(linear_transformation_2d, np.ones(6), method='Powell')
-        lincombs = out_linear_transformation_2d(min_result.x)
+        # Initialize parameters based on dimension
+        init_params = np.ones(dim * (dim + 1))  # dim^2 + dim parameters
+        min_result = minimize(linear_transformation, init_params, method='Powell')
+        lincombs = out_linear_transformation(min_result.x)
 
         for i in range(dim):
             all_force_proj[i].append(lincombs[i])
@@ -171,18 +187,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path", type=str, required=True)
+    parser.add_argument("--ndim", type=int, required=True, help="Number of spatial dimensions")
+    parser.add_argument("--dt", type=float, required=True, help="Time step size")
     args = parser.parse_args()
 
     hidden_dim, msg_dim = parse_model_params(args.model_path)
 
     model = NbodyGraph(
-        in_channels=6,
+        in_channels=2 * args.ndim + 2,  # positions + velocities + 2 additional parameters
         hidden_dim=hidden_dim,
         msg_dim=msg_dim,
-        out_channels=2,
-        dt=0.01,
+        out_channels=args.ndim,  # forces/accelerations in each dimension
+        dt=args.dt,
         nt=1,
-        ndim=2
+        ndim=args.ndim
     )
 
     checkpoint = torch.load(args.model_path, map_location='cpu')
@@ -200,11 +218,12 @@ def main():
         df = pd.DataFrame(msgs, columns=[f"e{i+1}" for i in range(msgs.shape[1])])
         df['r'] = data['distances']
         df['bd'] = data['distances'] + 1e-2
-        df['dx'] = data['edge_dirs'][:, 0]
-        df['dy'] = data['edge_dirs'][:, 1]
+        # Add position columns based on dimension
+        for i in range(args.ndim):
+            df[f'd{"xyz"[i]}'] = data['edge_dirs'][:, i]
         messages_over_time.append(df)
 
-    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=2)
+    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim)
 
 
 if __name__ == "__main__":

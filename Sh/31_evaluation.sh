@@ -23,22 +23,23 @@ source "${ROOT_DIR}/Const/const.txt"
 # Model parameters
 # @@@make it refer the same parameter sets with other wrapper shells at ../Const/const.txt
 DEVICE="cpu"          # Device to use (cpu/cuda)
-MODEL_NAME="nbody_h${HIDDEN_DIM}_m${MSG_DIM}_b1_e31.pt"
 
 # Define directories
 WORKDIR="${ROOT_DIR}/workdir"
 SRC_DIR="${ROOT_DIR}/Source"
 DATA_DIR="${ROOT_DIR}/Data"
 LOG_DIR="${ROOT_DIR}/Log"
-#@@@ modify as in ModelsDir="${Root}/Models/${DATA_NAME/.npz/}"
 MODELS_DIR="${ROOT_DIR}/Models"
-# @@@ better store results in each separate directories par models OUTPUT_DIR="${ROOT_DIR}/Figs/evaluation_results/${DATA_NAME/.npz/}"
-OUTPUT_DIR="${ROOT_DIR}/Figs/evaluation_results/"
+# Create evaluation results directory in the model directory
+EVAL_DIR="${MODELS_DIR}/${DATA_NAME}/evaluation"
+mkdir -p "$EVAL_DIR"
 
-# Time step size is now defined in const.txt
-
-mkdir -p "$WORKDIR" "$OUTPUT_DIR"
+mkdir -p "$WORKDIR"
 cd "$WORKDIR"
+
+
+MODEL_NAME="nbody_h256_m128_b16_e1.pt"
+
 
 echo "Setting up working directory..."
 
@@ -50,11 +51,11 @@ python evaluation.py \
     --model_path "${MODELS_DIR}/${DATA_NAME}/${MODEL_NAME}" \
     --data_path "${DATA_DIR}/${DATA_NAME}.npz" \
     --device "${DEVICE}" \
-    --output_dir "${OUTPUT_DIR}" \
     --hidden_dim "${HIDDEN_DIM}" \
     --msg_dim "${MSG_DIM}" \
-    --num_timesteps "${NUM_TIMESTEPS}" \
+    --num_timesteps "125" \ # no more than 125 steps
     --dt "${DT}" \
-    --ndim "${DIMENSIONS}"
+    --ndim "${DIMENSIONS}" \
+    --save_path "${EVAL_DIR}/trajectory_plot.png"
 
 echo "All files have been moved successfully."

@@ -30,12 +30,16 @@ ln -sf "${SOURCE_DIR}/"*.py "${ROOT_DIR}/${WORK_DIR}/"
 
 echo "Running batch prediction process..."
 
-MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/${MODEL_NAME}"
+#MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/${MODEL_NAME}"
+MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/nbody_h256_m128_b16_e1.pt"
+
 DATA_PATH="${DATA_DIR}/${DATA_NAME}.npz"
 
 python visualize_hidden.py \
     --model_path "$MODEL_PATH" \
-    --data_path "$DATA_PATH"
+    --data_path "$DATA_PATH" \
+    --ndim "${DIMENSIONS}" \
+    --dt 1
 
 # Move outputs to final location
 if ls *.png 1> /dev/null 2>&1; then

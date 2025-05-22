@@ -261,10 +261,10 @@ if __name__ == "__main__":
 
     # Initialize model
     model = NbodyGraph(
-        in_channels=test_graph.x.shape[1], 
+        in_channels=2 * spatial_dim + 2,  # positions + velocities + 2 additional parameters
         hidden_dim=args.hidden_dim, 
         msg_dim=args.msg_dim, 
-        out_channels=spatial_dim,
+        out_channels=spatial_dim,  # forces/accelerations in each dimension
         dt=0.01, 
         nt=num_timesteps, 
         ndim=spatial_dim

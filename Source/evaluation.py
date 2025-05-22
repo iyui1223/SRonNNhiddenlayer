@@ -83,41 +83,59 @@ def evaluate_and_plot(
     # Calculate metrics
     metrics = calculate_metrics(trajectory_true, trajectory_pred)
 
-    # Plot trajectories
-    plt.figure(figsize=(10, 5))
-    for i in range(num_bodies):
-        plt.plot(trajectory_true[:, i, 0], trajectory_true[:, i, 1], 'k--', linewidth=2.5, 
-                label=f'True {i}' if i == 0 else "")
-        plt.plot(trajectory_pred[:, i, 0], trajectory_pred[:, i, 1], 
-                label=f'Pred {i}')
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title(f"Predicted vs True Trajectories")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to {save_path}")
-        # Save metrics to a text file
-        metrics_file = Path(save_path).parent / "metrics.txt"
-        with open(metrics_file, 'w') as f:
-            f.write("Time series metrics:\n")
-            f.write("RMSE over time:\n")
-            for t, rmse in enumerate(metrics['rmse']):
-                f.write(f"t={t}: {rmse:.6f}\n")
-            f.write("\nACC over time:\n")
-            for t, acc in enumerate(metrics['acc']):
-                f.write(f"t={t}: {acc:.6f}\n")
-            # Also write mean values
-            f.write("\nMean metrics:\n")
-            f.write(f"Mean RMSE: {np.mean(metrics['rmse']):.6f}\n")
-            f.write(f"Mean ACC: {np.mean(metrics['acc']):.6f}\n")
-        print(f"Metrics saved to {metrics_file}")
+    # Plot trajectories only for 2D case
+    if spatial_dim == 2:
+        plt.figure(figsize=(10, 5))
+        for i in range(num_bodies):
+            plt.plot(trajectory_true[:, i, 0], trajectory_true[:, i, 1], 'k--', linewidth=2.5, 
+                    label=f'True {i}' if i == 0 else "")
+            plt.plot(trajectory_pred[:, i, 0], trajectory_pred[:, i, 1], 
+                    label=f'Pred {i}')
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title(f"Predicted vs True Trajectories")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Figure saved to {save_path}")
+            # Save metrics to a text file
+            metrics_file = Path(save_path).parent / "metrics.txt"
+            with open(metrics_file, 'w') as f:
+                f.write("Time series metrics:\n")
+                f.write("RMSE over time:\n")
+                for t, rmse in enumerate(metrics['rmse']):
+                    f.write(f"t={t}: {rmse:.6f}\n")
+                f.write("\nACC over time:\n")
+                for t, acc in enumerate(metrics['acc']):
+                    f.write(f"t={t}: {acc:.6f}\n")
+                # Also write mean values
+                f.write("\nMean metrics:\n")
+                f.write(f"Mean RMSE: {np.mean(metrics['rmse']):.6f}\n")
+                f.write(f"Mean ACC: {np.mean(metrics['acc']):.6f}\n")
+            print(f"Metrics saved to {metrics_file}")
+        else:
+            plt.show()
+        plt.close()
     else:
-        plt.show()
-    plt.close()
+        # For 3D case, just save metrics
+        if save_path:
+            metrics_file = Path(save_path).parent / "metrics.txt"
+            with open(metrics_file, 'w') as f:
+                f.write("Time series metrics:\n")
+                f.write("RMSE over time:\n")
+                for t, rmse in enumerate(metrics['rmse']):
+                    f.write(f"t={t}: {rmse:.6f}\n")
+                f.write("\nACC over time:\n")
+                for t, acc in enumerate(metrics['acc']):
+                    f.write(f"t={t}: {acc:.6f}\n")
+                # Also write mean values
+                f.write("\nMean metrics:\n")
+                f.write(f"Mean RMSE: {np.mean(metrics['rmse']):.6f}\n")
+                f.write(f"Mean ACC: {np.mean(metrics['acc']):.6f}\n")
+            print(f"Metrics saved to {metrics_file}")
 
     return trajectory_true, trajectory_pred, metrics
 
@@ -136,14 +154,16 @@ if __name__ == "__main__":
     parser.add_argument("--num_timesteps", type=int, default=50, help="Number of timesteps to evaluate")
     parser.add_argument("--dt", type=float, required=True, help="Time step size used in simulation")
     parser.add_argument("--ndim", type=int, required=True, help="Number of spatial dimensions")
+    parser.add_argument("--save_path", type=str, help="Path to save the evaluation results")
     
     args = parser.parse_args()
     
-    # Create output directory
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    output_file = output_dir / f"trajectory_plot.png"
+    # Create output directory if it doesn't exist
+    if args.save_path:
+        save_path = Path(args.save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        save_path = None
     
     # Load model and data
     from train import NbodyGraph
@@ -151,10 +171,10 @@ if __name__ == "__main__":
     
     # Set the same parameters as used in training
     model = NbodyGraph(
-        in_channels=6,
+        in_channels=2 * args.ndim + 2,  # positions + velocities + 2 additional parameters
         hidden_dim=args.hidden_dim,
         msg_dim=args.msg_dim,
-        out_channels=args.ndim, 
+        out_channels=args.ndim,  # forces/accelerations in each dimension
         dt=args.dt,
         nt=1,
         ndim=args.ndim
@@ -173,9 +193,9 @@ if __name__ == "__main__":
         model=model,
         positions_velocities=positions_velocities,
         accelerations=accelerations,
-        spatial_dim=2,
+        spatial_dim=args.ndim,
         simulation_index=0,
         num_timesteps=args.num_timesteps,
         device=args.device,
-        save_path=str(output_file)
+        save_path=str(save_path) if save_path else None
     )
