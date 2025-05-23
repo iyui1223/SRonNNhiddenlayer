@@ -12,8 +12,8 @@
 
 set -eox
 
-# Source constants
-source "${ROOT_DIR}/Const/const.txt"
+# Source constants from the work directory
+source "const.txt"
 
 # Source conda
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
@@ -24,34 +24,28 @@ conda activate final; module load gcc/11.3.0
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"
 
-cd "${ROOT_DIR}/${WORK_DIR}"
+# Link source files
+ln -sf "${SOURCE_DIR}/"*.py .
 
-ln -sf "${SOURCE_DIR}/"*.py "${ROOT_DIR}/${WORK_DIR}/"
+echo "Running latent space analysis..."
 
-echo "Running batch prediction process..."
-
-#MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/${MODEL_NAME}"
+# @@@debug
 MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/nbody_h256_m128_b16_e1.pt"
-
 DATA_PATH="${DATA_DIR}/${DATA_NAME}.npz"
 
 python visualize_hidden.py \
     --model_path "$MODEL_PATH" \
     --data_path "$DATA_PATH" \
     --ndim "${DIMENSIONS}" \
-    --dt 1
+    --dt "${DT}"
 
 # Move outputs to final location
 if ls *.png 1> /dev/null 2>&1; then
-    mkdir -p "${ROOT_DIR}/Figures/${DATA_NAME/.npz/}"
-    mv *.png "${ROOT_DIR}/Figures/${DATA_NAME/.npz/}/"
-    echo "[$(date)] Figures moved to ${ROOT_DIR}/Figures/${DATA_NAME/.npz/}/"
-fi
-
-if ls *.txt 1> /dev/null 2>&1; then
-    mkdir -p "${ROOT_DIR}/Results/${DATA_NAME/.npz/}"
-    mv *.txt "${ROOT_DIR}/Results/${DATA_NAME/.npz/}/"
-    echo "[$(date)] Results moved to ${ROOT_DIR}/Results/${DATA_NAME/.npz/}/"
+    EVAL_DIR="${ROOT_DIR}/Figs/${DATA_NAME%.npz}/${MODEL_NAME%.pt}"
+    mkdir -p "$EVAL_DIR"
+    mv *.png "$EVAL_DIR"
+    mv *.txt "$EVAL_DIR"
+    echo "[$(date)] Figures moved to $EVAL_DIR"
 fi
 
 echo "[$(date)] Analysis completed successfully."

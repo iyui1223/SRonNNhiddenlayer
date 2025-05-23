@@ -10,6 +10,7 @@ from scipy.optimize import minimize
 from copy import copy
 from torch_geometric.data import Data
 from train import NbodyGraph  # Update path if needed
+from pathlib import Path
 
 def single_graph(model, graph_data): 
     model.eval()
@@ -76,7 +77,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)  # Bidirectional edges
 
     graphs = []
-    for sim in range(300): #num_simulations):
+    for sim in range(300): #num_simulations): @@@debug
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
@@ -103,8 +104,85 @@ def percentile_sum(x):
     frac_good = (msk).sum() / len(x)
     return x[msk].sum() / frac_good
 
+def detect_force_type(data_path):
+    """Detect the type of forcing from the data path."""
+    filename = os.path.basename(data_path)
+    if filename.startswith('spring_'):
+        return 'spring'
+    elif filename.startswith('charge_'):
+        return 'charge'
+    elif filename.startswith('damped_'):
+        return 'damped'
+    elif filename.startswith('string_'):
+        return 'string'
+    elif filename.startswith('disc_'):
+        return 'discontinuous'
+    else:
+        raise ValueError(f"Unknown force type in data path: {data_path}")
 
-def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', title="GNN Force Matching"):
+def get_force_function(force_type, dim):
+    """Get the appropriate force function based on the force type."""
+    if force_type == 'spring':
+        return lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None]
+    elif force_type == 'charge':
+        return lambda msg: msg['charge1'].to_numpy()[:, None] * msg['charge2'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / (msg['bd'].to_numpy()[:, None] ** 2)
+    elif force_type == 'damped':
+        return lambda msg: (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None] - 
+                           msg['damping'].to_numpy()[:, None] * msg[[f'v{"xyz"[i]}' for i in range(dim)]].to_numpy())
+    elif force_type == 'string':
+        return lambda msg: (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None] +
+                           msg['string_force'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy())
+    elif force_type == 'discontinuous':
+        return lambda msg: (
+            (msg['bd'].to_numpy() < 1)[:, None] * 0.0 +
+            ((msg['bd'].to_numpy() >= 1) & (msg['bd'].to_numpy() < 2))[:, None] * (-msg['mass1'].to_numpy()[:, None] * msg['mass2'].to_numpy()[:, None] / (msg['bd'].to_numpy()[:, None] ** 2)) +
+            (msg['bd'].to_numpy() >= 2)[:, None] * (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None])
+        )
+    else:
+        raise ValueError(f"Unknown force type: {force_type}")
+
+def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None, title="GNN Force Matching"):
+    # Create output directory
+    output_dir = Path("Figures/message_analysis")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Detect force type from data path
+    force_type = detect_force_type(data_path) if data_path else 'spring'
+    print(f"Detected force type: {force_type}")
+
+    # Calculate sparsity ratios
+    sparsity_ratios = []
+    for msgs in messages_over_time:
+        msg_columns = [f"e{k+1}" for k in range(msg_dim)]
+        msg_array = np.array(msgs[msg_columns])
+        
+        # Calculate overall variance
+        overall_var = np.var(msg_array, axis=0)
+        overall_var_sum = np.sum(overall_var)
+        
+        # Calculate top dim messages variance
+        msg_importance = np.var(msg_array, axis=0)
+        most_important = np.argsort(msg_importance)[-dim:]
+        top_msgs_var = np.var(msg_array[:, most_important], axis=0)
+        top_msgs_var_sum = np.sum(top_msgs_var)
+        
+        # Calculate sparsity ratio
+        sparsity_ratio = top_msgs_var_sum / overall_var_sum
+        sparsity_ratios.append(sparsity_ratio)
+    
+    # Calculate mean sparsity ratio
+    mean_sparsity = np.mean(sparsity_ratios)
+    
+    # Save sparsity information
+    sparsity_file = "message_sparsity.txt"
+    with open(sparsity_file, 'w') as f:
+        f.write(f"Mean sparsity ratio: {mean_sparsity:.4f}\n")
+        f.write(f"Number of simulations analyzed: {len(sparsity_ratios)}\n")
+        f.write(f"Top {dim} messages variance / Overall messages variance\n")
+        f.write(f"Individual simulation ratios:\n")
+    
+    print(f"Sparsity analysis saved to {sparsity_file}")
+
     pos_cols = ['dx', 'dy', 'dz'][:dim]  # Handle both 2D and 3D
     fig, axes = plt.subplots(1, dim, figsize=(5 * dim, 5))
 
@@ -115,7 +193,10 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', 
     all_force_proj = [[] for _ in range(dim)]
     all_msg_comp = [[] for _ in range(dim)]
 
-    for msgs in messages_over_time:
+    # Get the appropriate force function
+    force_fnc = get_force_function(force_type, dim)
+
+    for i, msgs in enumerate(messages_over_time):
         msgs = copy(msgs)
         msgs['bd'] = msgs.r + 1e-2
 
@@ -126,7 +207,6 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, sim='spring', 
         msgs_to_compare = msg_array[:, most_important]
         msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
 
-        force_fnc = lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[pos_cols].to_numpy() / msg['bd'].to_numpy()[:, None]
         expected_forces = force_fnc(msgs)
 
         def linear_transformation(alpha):
@@ -223,7 +303,7 @@ def main():
             df[f'd{"xyz"[i]}'] = data['edge_dirs'][:, i]
         messages_over_time.append(df)
 
-    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim)
+    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim, data_path=args.data_path)
 
 
 if __name__ == "__main__":

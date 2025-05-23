@@ -13,8 +13,8 @@
 
 set -eox
 
-# Source constants
-source "${ROOT_DIR}/Const/const.txt"
+# Source constants from the work directory
+source "const.txt"
 
 # Source conda
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
@@ -25,8 +25,7 @@ conda activate final; module load gcc/11.3.0
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${MODELS_DIR}/${DATA_NAME/.npz/}"
 
-cd "${ROOT_DIR}/${WORK_DIR}"
-
+# Link source files
 ln -sf "${SOURCE_DIR}/train.py" .
 ln -sf "${DATA_DIR}/${DATA_NAME}.npz" .
 
@@ -47,10 +46,4 @@ python "train.py" \
     --checkpoint_dir "${MODELS_DIR}/${DATA_NAME/.npz/}"
 
 echo "[$(date)] Training completed."
-
-# Cleanup: Remove temporary working directory
-cd "${ROOT_DIR}"
-# rm -rf "${ROOT_DIR}/${WORK_DIR}"
-
-echo "[$(date)] Temporary work directory removed."
 echo "Model checkpoints saved in: ${MODELS_DIR}/${DATA_NAME/.npz/}"

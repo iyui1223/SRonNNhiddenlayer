@@ -1,0 +1,29 @@
+# Root directory
+ROOT_DIR="/home/yi260/final_project"
+
+# Working directory (will be modified for each forcing type)
+WORK_DIR="Work/TYPE_nbody"
+
+# Source directory
+SOURCE_DIR="${ROOT_DIR}/Source"
+
+# Log directory
+LOG_DIR="${ROOT_DIR}/Log"
+
+# Data directory
+DATA_DIR="${ROOT_DIR}/Data"
+
+# Figure directory
+FIG_DIR="${ROOT_DIR}/Figs"
+
+
+# Simulation parameters (will be modified for each forcing type)
+# Note: 'disc' will be mapped to 'discontinuous' in the simulation script
+SIM_TYPE="TYPE"
+N_BODIES=4
+DIMENSIONS=2
+NUM_TIMESTEPS=1000
+NUM_SAMPLES=10000
+
+# Data name for output files
+DATA_NAME="${SIM_TYPE}_n${N_BODIES}_dim${DIMENSIONS}_nt${NUM_TIMESTEPS}" 

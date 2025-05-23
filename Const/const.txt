@@ -1,9 +1,10 @@
 # Simulation Parameters
 SIM_TYPE="spring"
 N_BODIES=4
-DIMENSIONS=2
+DIMENSIONS=3
 NUM_TIMESTEPS=250
 NUM_SAMPLES=10000
+DT=0.01  # Time step size for simulation
 
 # Model Parameters
 HIDDEN_DIM=256
