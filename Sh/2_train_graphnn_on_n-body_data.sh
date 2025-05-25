@@ -2,10 +2,9 @@
 #SBATCH --job-name=train_gnn
 #SBATCH --output=./Log/2output.log
 #SBATCH --error=./Log/2error.log
-#SBATCH --time=00:10:00               # Max execution time (HH:MM:SS)
-#SBATCH --partition=ampere
-#SBATCH --gres=gpu:4
-#SBATCH -A MPHIL-DIS-SL2-GPU
+#SBATCH --time=01:00:00               # Max execution time (HH:MM:SS)
+#SBATCH --partition=icelake
+#SBATCH -A MPHIL-DIS-SL2-CPU
 
 ##################
 #### editable ####

@@ -4,8 +4,8 @@
 export ROOT_DIR="/home/yi260/final_project"
 
 # Define forcing types
-# FORCE_TYPES=("spring" "charge" "damped" "string" "disc")
-FORCE_TYPES=("charge" "damped")
+FORCE_TYPES=("spring" "charge" "damped" "string" "disc")
+# FORCE_TYPES=("charge" "damped")
 # Function to create work directory and setup for a forcing type
 setup_force_type() {
     local force_type=$1
@@ -50,13 +50,13 @@ run_pipeline_for_type() {
     echo "Starting pipeline execution for $force_type..."
     
     # Submit jobs in sequence
-    # echo "Submitting simulation data creation job for $force_type..."
-    # job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
-    # echo "Job 1 submitted with ID: $job1"
+    echo "Submitting simulation data creation job for $force_type..."
+    job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
+    echo "Job 1 submitted with ID: $job1"
     
     echo "Submitting training job for $force_type..."
-    # job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
-    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
+    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
+    # job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
     echo "Job 2 submitted with ID: $job2"
     
     echo "Submitting evaluation job for $force_type..."

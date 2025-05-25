@@ -60,9 +60,7 @@ python "make_simulation_data.py" \
     --n ${N_BODIES} \
     --dim ${DIMENSIONS} \
     --nt ${NUM_TIMESTEPS} \
-    --ns ${NUM_SAMPLES} \
-    --dt ${DT}
-
+    --ns ${NUM_SAMPLES}
 # Check for simulation output and move to final location
 if ls *.npz 1> /dev/null 2>&1; then
     mv nbody_simulation.npz "${DATA_DIR}/${DATA_NAME}.npz"
