@@ -13,6 +13,7 @@ setup_force_type() {
     
     # Create work directory
     mkdir -p "$work_dir"
+    mkdir -p "${work_dir}/Log"
     
     # Copy template const.txt to work directory
     cp "${ROOT_DIR}/Const/const_template.txt" "${work_dir}/const.txt"
@@ -49,12 +50,13 @@ run_pipeline_for_type() {
     echo "Starting pipeline execution for $force_type..."
     
     # Submit jobs in sequence
-    echo "Submitting simulation data creation job for $force_type..."
-    job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
-    echo "Job 1 submitted with ID: $job1"
+    # echo "Submitting simulation data creation job for $force_type..."
+    # job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
+    # echo "Job 1 submitted with ID: $job1"
     
     echo "Submitting training job for $force_type..."
-    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
+    # job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
+    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
     echo "Job 2 submitted with ID: $job2"
     
     echo "Submitting evaluation job for $force_type..."

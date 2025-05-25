@@ -1,5 +1,6 @@
 # Ignore all .npy files (simulation data)
 *.npy
+*.npz
 
 # Ignore all log files
 *.log
@@ -7,10 +8,13 @@
 
 # Ignore the temporary work directory
 Work/
+workdir/
+.ipynb_checkpoints/
 
 # Ignore hidden system files (Mac and Linux)
 .DS_Store
 Thumbs.
+.ipynb_checkpoints
 
 # Ignore NFS temporary files
 .nfs*

@@ -60,8 +60,8 @@ class GraphNetwork(MessagePassing):
         messages = self.message_net(edge_features)
         # Compute distances between x_i and x_j (first ndim are positions)
         # If x_i and x_j have more than just positions, use the first ndim columns
-        positions_i = x_i[:, :2]  # Default to 2D
-        positions_j = x_j[:, :2]
+        positions_i = x_i[:, :self.ndim]
+        positions_j = x_j[:, :self.ndim]
         distances = torch.norm(positions_i - positions_j, dim=1)
         if self._store_messages:
             self.message_activations['messages'].append(messages.detach())

@@ -1,8 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=n-body-simulation
-#SBATCH --output=/home/yi260/final_project/Log/1output.log
-#SBATCH --error=/home/yi260/final_project/Log/1error.log
+#SBATCH --output=./Log/1output.log
+#SBATCH --error=./Log/1error.log
 #SBATCH --time=00:07:00               # Max execution time (HH:MM:SS)
+#SBATCH --mem=4G
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -13,35 +14,7 @@
 set -eox
 
 # Source constants from the work directory
-source "const.txt"
-
-# Map simulation type to dt and handle 'disc' to 'discontinuous' mapping
-case "${SIM_TYPE}" in
-    "spring")
-        DT=1e-2
-        SIM_TYPE_FINAL="spring"
-        ;;
-    "charge")
-        DT=1e-3
-        SIM_TYPE_FINAL="charge"
-        ;;
-    "damped")
-        DT=2e-2
-        SIM_TYPE_FINAL="damped"
-        ;;
-    "string")
-        DT=1e-2
-        SIM_TYPE_FINAL="string"
-        ;;
-    "disc")
-        DT=1e-2
-        SIM_TYPE_FINAL="discontinuous"
-        ;;
-    *)
-        echo "Error: Unknown simulation type: ${SIM_TYPE}"
-        exit 1
-        ;;
-esac
+source "./const.txt"
 
 # Check if conda is available
 if ! command -v conda &> /dev/null; then
@@ -88,8 +61,7 @@ python "make_simulation_data.py" \
     --dim ${DIMENSIONS} \
     --nt ${NUM_TIMESTEPS} \
     --ns ${NUM_SAMPLES} \
-    --dt ${DT} \
-    >> "${LogFile}" 2>> "${ErrFile}"
+    --dt ${DT}
 
 # Check for simulation output and move to final location
 if ls *.npz 1> /dev/null 2>&1; then

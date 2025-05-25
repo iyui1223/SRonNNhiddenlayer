@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=train_gnn
-#SBATCH --output=/home/yi260/final_project/Log/2output.log
-#SBATCH --error=/home/yi260/final_project/Log/2error.log
+#SBATCH --output=./Log/2output.log
+#SBATCH --error=./Log/2error.log
 #SBATCH --time=00:10:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=ampere
 #SBATCH --gres=gpu:4

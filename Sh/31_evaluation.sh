@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=evaluation
-#SBATCH --output=/home/yi260/final_project/Log/31output.log
-#SBATCH --error=/home/yi260/final_project/Log/31error.log
+#SBATCH --output=./Log/31output.log
+#SBATCH --error=./Log/31error.log
 #SBATCH --time=00:07:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
@@ -13,7 +13,7 @@
 set -eox
 
 # Source constants from the work directory
-source "const.txt"
+source "./const.txt"
 
 # Source conda
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
@@ -23,9 +23,6 @@ conda activate final; module load gcc/11.3.0
 
 # Link source files
 ln -sf "${SOURCE_DIR}/"*.py .
-
-# @@@debug
-MODEL_NAME="nbody_h256_m128_b16_e1.pt"
 
 # Create evaluation results directory in the model directory
 EVAL_DIR="${ROOT_DIR}/Figs/${DATA_NAME%.npz}/${MODEL_NAME%.pt}"

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=latent_exp
-#SBATCH --output=/home/yi260/final_project/Log/32output.log
-#SBATCH --error=/home/yi260/final_project/Log/32error.log
+#SBATCH --output=./Log/32output.log
+#SBATCH --error=./Log/32error.log
 #SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
@@ -13,7 +13,7 @@
 set -eox
 
 # Source constants from the work directory
-source "const.txt"
+source "./const.txt"
 
 # Source conda
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
@@ -30,7 +30,8 @@ ln -sf "${SOURCE_DIR}/"*.py .
 echo "Running latent space analysis..."
 
 # @@@debug
-MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/nbody_h256_m128_b16_e1.pt"
+# MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/nbody_h256_m128_b16_e1.pt"
+MODEL_PATH="${MODELS_DIR}/${DATA_NAME/.npz/}/${MODEL_NAME}"
 DATA_PATH="${DATA_DIR}/${DATA_NAME}.npz"
 
 python visualize_hidden.py \

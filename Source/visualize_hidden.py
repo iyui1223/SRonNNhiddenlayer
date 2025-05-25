@@ -32,6 +32,7 @@ def single_graph(model, graph_data):
         ndim = model.ndim  # Get number of dimensions from model
         # Get positions and accelerations
         positions = graph_data.x[:, :ndim].cpu().numpy()  # Shape: [num_nodes, ndim]
+        velocities = graph_data.x[:, ndim:2*ndim].cpu().numpy()  # Shape: [num_nodes, ndim]
         accelerations = graph_data.y.cpu().numpy()     # Shape: [num_nodes, ndim]
         
         # Get source and target nodes for each edge
@@ -42,6 +43,19 @@ def single_graph(model, graph_data):
         edge_vecs = positions[tgt_nodes] - positions[src_nodes]  # Shape: [num_edges, ndim]
         edge_vecs_norm = np.linalg.norm(edge_vecs, axis=1, keepdims=True) + 1e-8
         edge_dirs = edge_vecs / edge_vecs_norm  # Normalized direction vectors
+        
+        # Get velocities of source nodes
+        src_vels = velocities[src_nodes]  # Shape: [num_edges, ndim]
+        
+        # Get parameters from the last two positions of the state vector
+        param1 = graph_data.x[:, -2].cpu().numpy()  # First parameter (e.g., charge, damping, tension)
+        param2 = graph_data.x[:, -1].cpu().numpy()  # Second parameter (e.g., mass)
+        
+        # Get parameters for source and target nodes
+        src_param1 = param1[src_nodes]  # Shape: [num_edges]
+        src_param2 = param2[src_nodes]  # Shape: [num_edges]
+        tgt_param1 = param1[tgt_nodes]  # Shape: [num_edges]
+        tgt_param2 = param2[tgt_nodes]  # Shape: [num_edges]
         
         # Get accelerations of source nodes
         src_accels = accelerations[src_nodes]  # Shape: [num_edges, ndim]
@@ -60,7 +74,12 @@ def single_graph(model, graph_data):
             'positions': positions,
             'edge_index': edge_index.cpu().numpy(),
             'messages': messages_tensor.cpu().numpy(),
-            'distances': distances_tensor.cpu().numpy()
+            'distances': distances_tensor.cpu().numpy(),
+            'src_vels': src_vels,
+            'src_param1': src_param1,
+            'src_param2': src_param2,
+            'tgt_param1': tgt_param1,
+            'tgt_param2': tgt_param2
         }
     else:
         print("No acceleration data available")
@@ -125,17 +144,17 @@ def get_force_function(force_type, dim):
     if force_type == 'spring':
         return lambda msg: -(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None]
     elif force_type == 'charge':
-        return lambda msg: msg['charge1'].to_numpy()[:, None] * msg['charge2'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / (msg['bd'].to_numpy()[:, None] ** 2)
+        return lambda msg: msg['param1'].to_numpy()[:, None] * msg['param2'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / (msg['bd'].to_numpy()[:, None] ** 2)
     elif force_type == 'damped':
         return lambda msg: (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None] - 
-                           msg['damping'].to_numpy()[:, None] * msg[[f'v{"xyz"[i]}' for i in range(dim)]].to_numpy())
+                           msg['param1'].to_numpy()[:, None] * msg[[f'v{"xyz"[i]}' for i in range(dim)]].to_numpy())
     elif force_type == 'string':
         return lambda msg: (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None] +
-                           msg['string_force'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy())
+                           msg['param1'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy())
     elif force_type == 'discontinuous':
         return lambda msg: (
             (msg['bd'].to_numpy() < 1)[:, None] * 0.0 +
-            ((msg['bd'].to_numpy() >= 1) & (msg['bd'].to_numpy() < 2))[:, None] * (-msg['mass1'].to_numpy()[:, None] * msg['mass2'].to_numpy()[:, None] / (msg['bd'].to_numpy()[:, None] ** 2)) +
+            ((msg['bd'].to_numpy() >= 1) & (msg['bd'].to_numpy() < 2))[:, None] * (-msg['param1'].to_numpy()[:, None] * msg['param2'].to_numpy()[:, None] / (msg['bd'].to_numpy()[:, None] ** 2)) +
             (msg['bd'].to_numpy() >= 2)[:, None] * (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None])
         )
     else:
@@ -301,6 +320,10 @@ def main():
         # Add position columns based on dimension
         for i in range(args.ndim):
             df[f'd{"xyz"[i]}'] = data['edge_dirs'][:, i]
+            df[f'v{"xyz"[i]}'] = data['src_vels'][:, i]  # Use actual velocity values
+        # Add parameter columns
+        df['param1'] = data['src_param1']  # First parameter from source node
+        df['param2'] = data['src_param2']  # Second parameter from source node
         messages_over_time.append(df)
 
     scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim, data_path=args.data_path)
