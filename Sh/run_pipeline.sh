@@ -4,8 +4,8 @@
 export ROOT_DIR="/home/yi260/final_project"
 
 # Define forcing types
-FORCE_TYPES=("spring" "charge" "damped" "string" "disc")
-# FORCE_TYPES=("charge" "damped")
+# FORCE_TYPES=("spring" "charge" "damped" "disc")
+FORCE_TYPES=("r1" "r2")
 # Function to create work directory and setup for a forcing type
 setup_force_type() {
     local force_type=$1

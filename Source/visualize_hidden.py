@@ -136,6 +136,10 @@ def detect_force_type(data_path):
         return 'string'
     elif filename.startswith('disc_'):
         return 'discontinuous'
+    elif filename.startswith('r1_'):
+        return 'r1'
+    elif filename.startswith('r2_'):
+        return 'r2'
     else:
         raise ValueError(f"Unknown force type in data path: {data_path}")
 
@@ -157,6 +161,12 @@ def get_force_function(force_type, dim):
             ((msg['bd'].to_numpy() >= 1) & (msg['bd'].to_numpy() < 2))[:, None] * (-msg['param1'].to_numpy()[:, None] * msg['param2'].to_numpy()[:, None] / (msg['bd'].to_numpy()[:, None] ** 2)) +
             (msg['bd'].to_numpy() >= 2)[:, None] * (-(msg['bd'].to_numpy() - 1)[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None])
         )
+    elif force_type == 'r1':
+        # For r1, the force is derived from potential = m1*m2*log(r)
+        return lambda msg: msg['param1'].to_numpy()[:, None] * msg['param2'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / msg['bd'].to_numpy()[:, None]
+    elif force_type == 'r2':
+        # For r2, the force is derived from potential = -m1*m2/r
+        return lambda msg: -msg['param1'].to_numpy()[:, None] * msg['param2'].to_numpy()[:, None] * msg[[f'd{"xyz"[i]}' for i in range(dim)]].to_numpy() / (msg['bd'].to_numpy()[:, None] ** 2)
     else:
         raise ValueError(f"Unknown force type: {force_type}")
 
