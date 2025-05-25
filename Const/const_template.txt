@@ -69,11 +69,11 @@ case "${SIM_TYPE}" in
         SIM_TYPE_FINAL="discontinuous"
         ;;
     "r1")
-        dt=0.01
+        DT=0.01
         SIM_TYPE_FINAL="r1"
         ;;
     "r2")
-        dt=0.01
+        DT=0.01
         SIM_TYPE_FINAL="r2"
         ;;
     *)

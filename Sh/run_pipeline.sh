@@ -50,17 +50,19 @@ run_pipeline_for_type() {
     echo "Starting pipeline execution for $force_type..."
     
     # Submit jobs in sequence
-    echo "Submitting simulation data creation job for $force_type..."
-    job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
-    echo "Job 1 submitted with ID: $job1"
+#    echo "Submitting simulation data creation job for $force_type..."
+#    job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
+#    echo "Job 1 submitted with ID: $job1"
     
-    echo "Submitting training job for $force_type..."
-    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
+#    echo "Submitting training job for $force_type..."
+#    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
     # job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
-    echo "Job 2 submitted with ID: $job2"
+#    echo "Job 2 submitted with ID: $job2"
     
     echo "Submitting evaluation job for $force_type..."
-    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
+#    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
+    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "" "$work_dir")
+
     echo "Job 31 submitted with ID: $job31"
     
     echo "Submitting latent space extraction job for $force_type..."
