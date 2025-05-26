@@ -10,95 +10,8 @@ from torch.utils.data import Dataset
 import argparse
 import os
 import re
+import model_util
 from datetime import datetime
-
-### Graph Network Definition
-class GraphNetwork(MessagePassing):
-    def __init__(self, in_channels, hidden_dim, msg_dim, out_channels, aggr='add'):
-        super(GraphNetwork, self).__init__(aggr=aggr)
-
-        self.message_net = Seq(
-            Linear(2 * in_channels, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, msg_dim)
-        )
-
-        self.update_net = Seq(
-            Linear(msg_dim + in_channels, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, hidden_dim),
-            ReLU(),
-            Linear(hidden_dim, out_channels)
-        )
-
-        # Add message activations storage
-        self.message_activations = None
-        self._store_messages = False
-
-    def reset_message_activations(self):
-        self.message_activations = {
-            'messages': [],
-            'edge_index': None,
-            'distances': []
-            }
-        self._store_messages = True
-
-    def forward(self, x, edge_index):
-        self.reset_message_activations()
-        # Store edge_index for this pass
-        self.message_activations['edge_index'] = edge_index.detach().clone()
-        return self.propagate(edge_index, x=x)
-
-    def message(self, x_i, x_j):
-        edge_features = torch.cat([x_i, x_j], dim=1)
-        messages = self.message_net(edge_features)
-        # Compute distances between x_i and x_j (first ndim are positions)
-        # If x_i and x_j have more than just positions, use the first ndim columns
-        positions_i = x_i[:, :self.ndim]
-        positions_j = x_j[:, :self.ndim]
-        distances = torch.norm(positions_i - positions_j, dim=1)
-        if self._store_messages:
-            self.message_activations['messages'].append(messages.detach())
-            self.message_activations['distances'].append(distances.detach())
-        return messages
-
-    def aggregate(self, inputs, index, dim_size=None):
-        out = torch.zeros(dim_size, inputs.size(1), device=inputs.device)
-        out.scatter_add_(0, index.unsqueeze(-1).expand_as(inputs), inputs)
-        return out
-
-    def update(self, aggr_out, x):
-        combined = torch.cat([x, aggr_out], dim=1)
-        return self.update_net(combined)
-
-
-### N-body Graph Network
-class NbodyGraph(GraphNetwork):
-    def __init__(self, in_channels, hidden_dim, msg_dim, out_channels, dt, nt, ndim, aggr='add'):
-        super(NbodyGraph, self).__init__(in_channels, hidden_dim, msg_dim, out_channels, aggr=aggr)
-        self.dt = dt
-        self.nt = nt
-        self.ndim = ndim
-
-    def simple_derivative(self, g):
-        return self.propagate(g.edge_index, x=g.x)
-
-    def loss(self, g):
-        pred_dv_dt = self.simple_derivative(g)[:, self.ndim:]
-        return torch.sum(torch.abs(g.y - pred_dv_dt))
-
-
-### Graph Utilities
-def connect_all(num_nodes):
-    indices = torch.combinations(torch.arange(num_nodes), with_replacement=False).T
-    return torch.cat([indices, indices.flip(0)], dim=1)  # Bidirectional edges
-
 
 def prepare_graph_from_simulation(simulation_index=0, time_index=0):
     x_np = positions_velocities[simulation_index, time_index]
@@ -110,48 +23,6 @@ def prepare_graph_from_simulation(simulation_index=0, time_index=0):
     y = torch.tensor(y_np, dtype=torch.float32).clone()
 
     return Data(x=x, edge_index=edge_index, y=y)
-
-
-### Dataset Loader
-class NBodyDataset(Dataset):
-    def __init__(self, positions_velocities, accelerations):
-        self.positions_velocities = positions_velocities
-        self.accelerations = accelerations
-        self.num_simulations, self.num_timesteps, self.num_bodies, _ = positions_velocities.shape
-
-    def __len__(self):
-        return self.num_simulations
-
-    def __getitem__(self, index):
-        sim_idx = index // self.num_timesteps
-        time_idx = index % self.num_timesteps
-
-        x_np = self.positions_velocities[sim_idx, time_idx]
-        x = torch.tensor(x_np, dtype=torch.float32).clone()
-
-        edge_index = connect_all(self.num_bodies)
-
-        y_np = self.accelerations[sim_idx, time_idx]
-        y = torch.tensor(y_np, dtype=torch.float32).clone()
-
-        return Data(x=x, edge_index=edge_index, y=y)
-
-
-def find_latest_checkpoint(checkpoint_dir, hidden_dim, msg_dim, batch_size):
-    pattern = re.compile(rf"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\d+.pt")
-    print(f"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e.pt")
-    max_epoch = 0
-    latest_ckpt = None
-    for fname in os.listdir(checkpoint_dir):
-        match = pattern.match(fname)
-        if match:
-            # Extract the epoch number after 'e' and before '.pt'
-            epoch = int(fname.split('_e')[-1].split('.pt')[0])
-            if epoch > max_epoch:
-                max_epoch = epoch
-                latest_ckpt = os.path.join(checkpoint_dir, fname)
-    return latest_ckpt, max_epoch
-
 
 def get_device(device_arg):
     """
@@ -175,7 +46,8 @@ def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=N
     
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_fn = torch.nn.L1Loss()
+#    loss_fn = torch.nn.L1Loss()
+    loss_fn = get_loss_function()
     best_loss = float('inf')
 
     for epoch in range(epochs):

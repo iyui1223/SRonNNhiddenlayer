@@ -9,7 +9,7 @@ from celluloid import Camera
 from scipy.optimize import minimize
 from copy import copy
 from torch_geometric.data import Data
-from train import NbodyGraph  # Update path if needed
+from model_util import NbodyGraph  # Update path if needed
 from pathlib import Path
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
