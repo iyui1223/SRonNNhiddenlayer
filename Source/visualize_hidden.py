@@ -231,8 +231,6 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
 
         expected_forces = force_fnc(msgs)
 
-
-
         def linear_transformation(alpha):
             lincombs = []
             for i in range(dim):
