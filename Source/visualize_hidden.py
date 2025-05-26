@@ -11,6 +11,8 @@ from copy import copy
 from torch_geometric.data import Data
 from train import NbodyGraph  # Update path if needed
 from pathlib import Path
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
 def single_graph(model, graph_data): 
     model.eval()
@@ -171,15 +173,19 @@ def get_force_function(force_type, dim):
         raise ValueError(f"Unknown force type: {force_type}")
 
 def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None, title="GNN Force Matching"):
-    # Create output directory
-    output_dir = Path("Figures/message_analysis")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Detect force type from data path
     force_type = detect_force_type(data_path) if data_path else 'spring'
     print(f"Detected force type: {force_type}")
 
-    # Calculate sparsity ratios
+    pos_cols = ['dx', 'dy', 'dz'][:dim]
+    fig, axes = plt.subplots(1, dim, figsize=(5 * dim, 5))
+    if dim == 1:
+        axes = [axes]
+
+    all_force_proj = [[] for _ in range(dim)]
+    all_msg_comp = [[] for _ in range(dim)]
+
+    force_fnc = get_force_function(force_type, dim)
+
     sparsity_ratios = []
     for msgs in messages_over_time:
         msg_columns = [f"e{k+1}" for k in range(msg_dim)]
@@ -212,23 +218,10 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
     
     print(f"Sparsity analysis saved to {sparsity_file}")
 
-    pos_cols = ['dx', 'dy', 'dz'][:dim]  # Handle both 2D and 3D
-    fig, axes = plt.subplots(1, dim, figsize=(5 * dim, 5))
-
-    # Handle both single and multiple axes
-    if dim == 1:
-        axes = [axes]
-
-    all_force_proj = [[] for _ in range(dim)]
-    all_msg_comp = [[] for _ in range(dim)]
-
-    # Get the appropriate force function
-    force_fnc = get_force_function(force_type, dim)
 
     for i, msgs in enumerate(messages_over_time):
         msgs = copy(msgs)
         msgs['bd'] = msgs.r + 1e-2
-
         msg_columns = [f"e{k+1}" for k in range(msg_dim)]
         msg_array = np.array(msgs[msg_columns])
         msg_importance = msg_array.std(axis=0)
@@ -238,37 +231,23 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
 
         expected_forces = force_fnc(msgs)
 
+
+
         def linear_transformation(alpha):
-            if dim == 2:
-                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
-                lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
-                return (
-                    percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
-                    percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2)
-                ) / 2.0
-            else:  # dim == 3
-                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2] * expected_forces[:, 2] + alpha[3]
-                lin2 = alpha[4] * expected_forces[:, 0] + alpha[5] * expected_forces[:, 1] + alpha[6] * expected_forces[:, 2] + alpha[7]
-                lin3 = alpha[8] * expected_forces[:, 0] + alpha[9] * expected_forces[:, 1] + alpha[10] * expected_forces[:, 2] + alpha[11]
-                return (
-                    percentile_sum((msgs_to_compare[:, 0] - lin1) ** 2) +
-                    percentile_sum((msgs_to_compare[:, 1] - lin2) ** 2) +
-                    percentile_sum((msgs_to_compare[:, 2] - lin3) ** 2)
-                ) / 3.0
+            lincombs = []
+            for i in range(dim):
+                lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
+                lincombs.append(lin)
+            return np.mean([percentile_sum((msgs_to_compare[:, i] - lincombs[i]) ** 2) for i in range(dim)])
 
         def out_linear_transformation(alpha):
-            if dim == 2:
-                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2]
-                lin2 = alpha[3] * expected_forces[:, 0] + alpha[4] * expected_forces[:, 1] + alpha[5]
-                return lin1, lin2
-            else:  # dim == 3
-                lin1 = alpha[0] * expected_forces[:, 0] + alpha[1] * expected_forces[:, 1] + alpha[2] * expected_forces[:, 2] + alpha[3]
-                lin2 = alpha[4] * expected_forces[:, 0] + alpha[5] * expected_forces[:, 1] + alpha[6] * expected_forces[:, 2] + alpha[7]
-                lin3 = alpha[8] * expected_forces[:, 0] + alpha[9] * expected_forces[:, 1] + alpha[10] * expected_forces[:, 2] + alpha[11]
-                return lin1, lin2, lin3
+            lincombs = []
+            for i in range(dim):
+                lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
+                lincombs.append(lin)
+            return lincombs
 
-        # Initialize parameters based on dimension
-        init_params = np.ones(dim * (dim + 1))  # dim^2 + dim parameters
+        init_params = np.ones(dim * (dim + 1))
         min_result = minimize(linear_transformation, init_params, method='Powell')
         lincombs = out_linear_transformation(min_result.x)
 
@@ -276,21 +255,37 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
             all_force_proj[i].append(lincombs[i])
             all_msg_comp[i].append(msgs_to_compare[:, i])
 
+    r2_scores = []
     for i in range(dim):
-        px = np.concatenate(all_force_proj[i])
-        py = np.concatenate(all_msg_comp[i])
+        px = np.concatenate(all_force_proj[i]).reshape(-1, 1)  # Independent variable
+        py = np.concatenate(all_msg_comp[i])                   # Dependent variable
+        reg = LinearRegression().fit(px, py)
+        y_pred = reg.predict(px)
+        r2 = r2_score(py, y_pred)
+        r2_scores.append(r2)
+
         axes[i].scatter(px, py, s=1, alpha=0.1, color='black')
+        axes[i].plot(px, y_pred, color='red', linewidth=1.0, label=f"R2={r2:.4f}")
         axes[i].set_xlabel('Linear combination of forces')
         axes[i].set_ylabel(f'Message Element {i+1}')
-        axes[i].set_title(f'Message {i+1} vs Force Projection')
+        axes[i].set_title(f'Message {i+1} vs Force Projection\nR2 = {r2:.4f}')
         axes[i].grid(True)
         axes[i].set_xlim(-1, 1)
         axes[i].set_ylim(-1, 1)
+        axes[i].legend()
 
     plt.suptitle(title)
     plt.tight_layout()
     plt.savefig("force_message_relation.png")
     plt.show()
+
+    r2_file = "message_r2_scores.txt"
+    with open(r2_file, 'w') as f:
+        f.write("R2 Scores for Linear Fit between Force Projection and Message Elements:\n")
+        for i, r2 in enumerate(r2_scores):
+            f.write(f"Message Element {i+1}: {r2:.4f}\n")
+    print(f"R2 scores saved to {r2_file}")
+
 
 def main():
     parser = argparse.ArgumentParser()
