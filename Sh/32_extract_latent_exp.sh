@@ -25,7 +25,9 @@ conda activate final; module load gcc/11.3.0
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"
 
 # Link source files
-ln -sf "${SOURCE_DIR}/"*.py .
+ln -rsf "${SOURCE_DIR}/train.py" .
+ln -rsf "${SOURCE_DIR}/model_util_${MODEL_TYPE}.py" model_util.py
+ln -rsf "${SOURCE_DIR}/visualize_hidden.py" .
 
 echo "Running latent space analysis..."
 

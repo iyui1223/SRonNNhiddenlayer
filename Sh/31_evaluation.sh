@@ -22,7 +22,8 @@ conda init bash
 conda activate final; module load gcc/11.3.0
 
 # Link source files
-ln -sf "${SOURCE_DIR}/"*.py .
+ln -rsf "${SOURCE_DIR}/evaluate.py" .
+ln -rsf "${SOURCE_DIR}/model_util_${MODEL_TYPE}.py" model_util.py
 
 # Create evaluation results directory in the model directory
 EVAL_DIR="${ROOT_DIR}/Figs/${DATA_NAME%.npz}/${MODEL_NAME%.pt}"
