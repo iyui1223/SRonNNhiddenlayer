@@ -8,7 +8,8 @@ export ROOT_DIR="/home/yi260/final_project"
 FORCE_TYPES=("r2")
 
 # define model or loss types
-MODEL_TYPES=("L1")
+MODEL_TYPES=("standard" "bottleneck" "KL" "FlatHGN")
+# MODEL_TYPES=("L1")
 
 # Function to create work directory and setup for a forcing type
 setup_force_type() {

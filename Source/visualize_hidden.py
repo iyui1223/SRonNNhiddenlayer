@@ -92,10 +92,9 @@ def create_graphs(npz_path):
     positions_velocities = loaded_data["data"]
     accelerations = loaded_data["accelerations"]
     num_simulations, num_timesteps, num_bodies, _ = positions_velocities.shape
-
     def connect_all(num_nodes):
         indices = torch.combinations(torch.arange(num_nodes), with_replacement=False).T
-        return torch.cat([indices, indices.flip(0)], dim=1)  # Bidirectional edges
+        return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
     for sim in range(300): #num_simulations): @@@debug
@@ -110,7 +109,10 @@ def create_graphs(npz_path):
 
 def parse_model_params(model_path):
     filename = os.path.basename(model_path)
-    match = re.search(r'nbody_h(\d+)_m(\d+)', filename)
+    match = re.match(r"([a-zA-Z0-9]+)_h\d+_m\d+", filename)
+    model_type = match.group(1) 
+    pattern = rf"{re.escape(model_type)}_h(\d+)_m(\d+)"
+    match = re.search(pattern, filename)
     if not match:
         raise ValueError(f"Could not parse model parameters from: {filename}")
     hidden_dim, msg_dim = map(int, match.groups())

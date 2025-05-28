@@ -87,11 +87,13 @@ def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=N
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train N-body Graph Neural Network")
+    parser.add_argument("--model_type", type=str, default="", help="Model type (regularization, loss function etc.)")
     parser.add_argument("--hidden_dim", type=int, default=32, help="Hidden dimension size")
     parser.add_argument("--msg_dim", type=int, default=16, help="Message dimension size")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size for training")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
+    parser.add_argument("--dt", type=float, default=0.01, help="time delta for model integration")
     parser.add_argument("--device", type=str, default='cpu', choices=['cpu', 'cuda'], help="Device to use for training")
     parser.add_argument("--data_path", type=str, default="nbody_simulation.npz", help="Path to the simulation data")
     parser.add_argument("--checkpoint_dir", type=str, default="Models", help="Directory to save model checkpoints")
@@ -123,12 +125,10 @@ if __name__ == "__main__":
     test_graph = prepare_graph_from_simulation(0, 0)
 
     # Model prefix for checkpoint naming (no timestamp)
-    model_prefix = f"nbody_h{args.hidden_dim}_m{args.msg_dim}_b{args.batch_size}"
-
-    print(model_prefix)
+    model_prefix = f"{args.model_type}_h{args.hidden_dim}_m{args.msg_dim}_b{args.batch_size}"
 
     # Check for existing checkpoint
-    latest_ckpt, current_epochs = find_latest_checkpoint(args.checkpoint_dir, args.hidden_dim, args.msg_dim, args.batch_size)
+    latest_ckpt, current_epochs = find_latest_checkpoint(args.checkpoint_dir, args.model_type, args.hidden_dim, args.msg_dim, args.batch_size)
     print(f"Resuming from checkpoint: {latest_ckpt}" if latest_ckpt else "No checkpoint found, starting from scratch.")
 
     # Initialize model
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         hidden_dim=args.hidden_dim, 
         msg_dim=args.msg_dim, 
         out_channels=spatial_dim,  # forces/accelerations in each dimension
-        dt=0.01, 
+        dt=args.dt, 
         nt=num_timesteps, 
         ndim=spatial_dim
     )
