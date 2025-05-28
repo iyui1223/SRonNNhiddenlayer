@@ -172,8 +172,8 @@ def get_force_function(force_type, dim):
     else:
         raise ValueError(f"Unknown force type: {force_type}")
 
-def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None, title="GNN Force Matching"):
-    force_type = detect_force_type(data_path) if data_path else 'spring'
+def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None, sim_type="", model_type=""):
+    force_type = detect_force_type(data_path) if data_path else "[Error] cannot determine force type."
     print(f"Detected force type: {force_type}")
 
     pos_cols = ['dx', 'dy', 'dz'][:dim]
@@ -266,13 +266,14 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
         axes[i].plot(px, y_pred, color='red', linewidth=1.0, label=f"R2={r2:.4f}")
         axes[i].set_xlabel('Linear combination of forces')
         axes[i].set_ylabel(f'Message Element {i+1}')
-        axes[i].set_title(f'Message {i+1} vs Force Projection\nR2 = {r2:.4f}')
+        axes[i].set_title(
+            f"Message {i+1} vs Force", fontsize=10)
+        fig.text(0.01, 0.99, f"Sim: {sim_type}\nModel: {model_type}", ha='left', va='top', fontsize=6)
         axes[i].grid(True)
         axes[i].set_xlim(-1, 1)
         axes[i].set_ylim(-1, 1)
         axes[i].legend()
 
-    plt.suptitle(title)
     plt.tight_layout()
     plt.savefig("force_message_relation.png")
     plt.show()
@@ -293,24 +294,25 @@ def main():
     parser.add_argument("--dt", type=float, required=True, help="Time step size")
     args = parser.parse_args()
 
+    data_base = os.path.basename(args.data_path).replace('.npz', '')
+    model_base = os.path.basename(args.model_path).replace('.pt', '')
+
     hidden_dim, msg_dim = parse_model_params(args.model_path)
 
     model = NbodyGraph(
-        in_channels=2 * args.ndim + 2,  # positions + velocities + 2 additional parameters
+        in_channels=2 * args.ndim + 2,
         hidden_dim=hidden_dim,
         msg_dim=msg_dim,
-        out_channels=args.ndim,  # forces/accelerations in each dimension
+        out_channels=args.ndim,
         dt=args.dt,
         nt=1,
         ndim=args.ndim
     )
-
     checkpoint = torch.load(args.model_path, map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     graphs = create_graphs(args.data_path)
-
     all_data = [single_graph(model, g) for g in graphs if single_graph(model, g) is not None]
     print(f"Processed {len(all_data)} simulations")
 
@@ -320,17 +322,16 @@ def main():
         df = pd.DataFrame(msgs, columns=[f"e{i+1}" for i in range(msgs.shape[1])])
         df['r'] = data['distances']
         df['bd'] = data['distances'] + 1e-2
-        # Add position columns based on dimension
         for i in range(args.ndim):
             df[f'd{"xyz"[i]}'] = data['edge_dirs'][:, i]
-            df[f'v{"xyz"[i]}'] = data['src_vels'][:, i]  # Use actual velocity values
-        # Add parameter columns
-        df['param1'] = data['src_param1']  # First parameter from source node
-        df['param2'] = data['src_param2']  # Second parameter from source node
+            df[f'v{"xyz"[i]}'] = data['src_vels'][:, i]
+        df['param1'] = data['src_param1']
+        df['param2'] = data['src_param2']
         messages_over_time.append(df)
 
-    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim, data_path=args.data_path)
-
+    scatter_all_force_message(messages_over_time, msg_dim=msg_dim, dim=args.ndim,
+                              data_path=args.data_path,
+                              sim_type=data_base, model_type=model_base)
 
 if __name__ == "__main__":
     main()
