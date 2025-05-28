@@ -61,6 +61,10 @@ def get_loss_function():
     return torch.nn.L1Loss()
 
 # below are all shared components regardless to model settings 
+def connect_all(num_nodes):
+    indices = torch.combinations(torch.arange(num_nodes), with_replacement=False).T
+    return torch.cat([indices, indices.flip(0)], dim=1)
+
 class NbodyGraph(GraphNetwork):
     def __init__(self, in_channels, hidden_dim, msg_dim, out_channels, dt, nt, ndim, aggr='add'):
         super(NbodyGraph, self).__init__(in_channels, hidden_dim, msg_dim, out_channels, aggr=aggr)
@@ -82,25 +86,21 @@ class NBodyDataset(torch.utils.data.Dataset):
         self.num_simulations, self.num_timesteps, self.num_bodies, _ = positions_velocities.shape
 
     def __len__(self):
-        return self.num_simulations * self.num_timesteps
+        return self.num_simulations
 
     def __getitem__(self, index):
         sim_idx = index // self.num_timesteps
         time_idx = index % self.num_timesteps
+
         x_np = self.positions_velocities[sim_idx, time_idx]
-        y_np = self.accelerations[sim_idx, time_idx]
         x = torch.tensor(x_np, dtype=torch.float32).clone()
-        y = torch.tensor(y_np, dtype=torch.float32).clone()
+
         edge_index = connect_all(self.num_bodies)
+
+        y_np = self.accelerations[sim_idx, time_idx]
+        y = torch.tensor(y_np, dtype=torch.float32).clone()
+
         return Data(x=x, edge_index=edge_index, y=y)
-
-    @property
-    def num_bodies(self):
-        return self.positions_velocities.shape[2]
-
-def connect_all(num_nodes):
-    indices = torch.combinations(torch.arange(num_nodes), with_replacement=False).T
-    return torch.cat([indices, indices.flip(0)], dim=1)
 
 def find_latest_checkpoint(checkpoint_dir, hidden_dim, msg_dim, batch_size):
     pattern = re.compile(rf"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\\d+.pt")

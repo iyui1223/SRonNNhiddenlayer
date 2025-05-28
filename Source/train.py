@@ -1,3 +1,5 @@
+import re
+from model_util import *
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear, ReLU, Sequential as Seq
@@ -9,8 +11,6 @@ import numpy as np
 from torch.utils.data import Dataset
 import argparse
 import os
-import re
-import model_util
 from datetime import datetime
 
 def prepare_graph_from_simulation(simulation_index=0, time_index=0):
