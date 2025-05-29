@@ -102,8 +102,8 @@ class NBodyDataset(torch.utils.data.Dataset):
 
         return Data(x=x, edge_index=edge_index, y=y)
 
-def find_latest_checkpoint(checkpoint_dir, hidden_dim, msg_dim, batch_size):
-    pattern = re.compile(rf"nbody_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\\d+.pt")
+def find_latest_checkpoint(checkpoint_dir, model_type, hidden_dim, msg_dim, batch_size):
+    pattern = re.compile(rf"{model_type}_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\\d+.pt")
     max_epoch = 0
     latest_ckpt = None
     for fname in os.listdir(checkpoint_dir):
