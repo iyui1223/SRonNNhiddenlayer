@@ -28,7 +28,7 @@ mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${MODELS_DIR}/${DATA_NAME/.npz/
 
 # Link source files
 cp "${SOURCE_DIR}/train.py" .
-cp "${SOURCE_DIR}/model_util_${MODEL_TYPE}.py" model_util.py
+cp "${SOURCE_DIR}/model_util/model_util_${MODEL_TYPE}.py" model_util.py
 ln -rsf "${DATA_DIR}/${DATA_NAME}.npz" .
 
 # Initialize conda for bash

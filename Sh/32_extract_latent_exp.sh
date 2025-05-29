@@ -26,7 +26,7 @@ mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"
 
 # Link source files
 cp "${SOURCE_DIR}/train.py" .
-cp "${SOURCE_DIR}/model_util_${MODEL_TYPE}.py" model_util.py
+cp "${SOURCE_DIR}/model_util/model_util_${MODEL_TYPE}.py" model_util.py
 cp "${SOURCE_DIR}/visualize_hidden.py" .
 
 echo "Running latent space analysis..."
