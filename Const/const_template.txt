@@ -77,6 +77,10 @@ case "${SIM_TYPE}" in
         DT=0.01
         SIM_TYPE_FINAL="r2"
         ;;
+    "TYPE")
+        echo "Summary mode -- Simulation type not specified"
+        ;;
+
     *)
         echo "Error: Unknown simulation type: ${SIM_TYPE}"
         exit 1
