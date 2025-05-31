@@ -1,22 +1,27 @@
-# final_project
-for final project for MPhil DIS: Symbolic distillization.
+# Symbolic Regression on GNN Hidden Representations
 
+This project is a reproduction of [Miles Cranmer's symbolic deep learning framework](https://github.com/MilesCranmer/symbolic_deep_learning/tree/master), which applies **symbolic regression** to the **hidden representations** of **graph neural networks (GNNs)** trained on physical systems.
 
+The aim is to extract interpretable relationships between the **hidden layer features** and **physical quantities**, such as forces, from learned GNN representations of n-body dynamics.
 
-# Access and env-setup at CSD3
+---
 
-# Anaconda environment for project can be loaded with 
-conda activate final; module load gcc/11.3.0 # needs latest gcc for torch-scatter, torch-sparce
+## Project Structure
 
-# using computation node
-Userguide for CSD3, regarding interactive login.
-https://docs.hpc.cam.ac.uk/hpc/user-guide/a100.html#software
+```bash
+.
+├── Sh/         # Shell scripts for environment setup and SLURM job submission with dependency management
+├── Source/     # Core Python scripts for simulation, model training, analysis, and symbolic regression
+├── Figs/       # Output directory for images and text summaries
+├── Original/   # Original code to generate n-body simulations with multiple force types
+```
 
-Check the status of nodes -- 
-$ sinfo
+---
 
-Check which nodes do I have access to --
-$ sacctmgr show user $USER format=User,Account,Partition
+## Features
 
-Run interactive job at, for example, ampere with YOURPROJECT-GPU
-$ sintr -t 4:0:0 --exclusive -A YOURPROJECT-GPU -p ampere
+* Supports **2D and 3D simulations**.
+* Compatible with various force types defined in `simulation.py`.
+* Modular structure for ease of extension and automation in HPC environments.
+
+---
