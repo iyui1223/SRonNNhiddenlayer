@@ -10,6 +10,7 @@
 Work/
 workdir/
 .ipynb_checkpoints/
+Viewer/
 
 # Ignore hidden system files (Mac and Linux)
 .DS_Store
