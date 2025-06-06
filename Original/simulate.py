@@ -183,7 +183,10 @@ class SimulationDataset(object):
             if sim in ['string', 'string_ball']:
                 x0 = random.normal(key, (n, total_dim))
                 x0 = x0.at[..., -1].set(1) #const mass
-                x0 = x0.at[..., 0].set(np.arange(n)+x0.at[...,0]*0.5)
+                # Get the current value, perform operation, then set
+                current_x = x0[..., 0]
+                new_x = np.arange(n) + current_x * 0.5
+                x0 = x0.at[..., 0].set(new_x)
                 x0 = x0.at[..., 2:3].set(0.0)
             else:
                 x0 = random.normal(key, (n, total_dim))

@@ -4,12 +4,13 @@
 export ROOT_DIR="/home/yi260/final_project"
 
 # Define forcing types
-# FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
-FORCE_TYPES=("r2")
+#FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
+FORCE_TYPES=("spring")
 
 # define model or loss types
-MODEL_TYPES=("standard" "bottleneck" "KL" "FlatHGN")
-# MODEL_TYPES=("L1")
+#MODEL_TYPES=("standard" "bottleneck" "L1" "KL")
+MODEL_TYPES=("L1" "KL")
+#MODEL_TYPES=("bottleneck")
 
 # Function to create work directory and setup for a forcing type
 setup_force_type() {
@@ -57,23 +58,24 @@ run_pipeline_for_type() {
     echo "Starting pipeline execution for $force_type..."
     
     # Submit jobs in sequence
-#    echo "Submitting simulation data creation job for $force_type..."
+    echo "Submitting simulation data creation job for $force_type..."
 #    job1=$(submit_job "${ROOT_DIR}/Sh/1_creat_n-body_simulation_data.sh" "" "$work_dir")
-#    echo "Job 1 submitted with ID: $job1"
+    echo "Job 1 submitted with ID: $job1"
     
     echo "Submitting training job for $force_type..."
 #    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
-     job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
+#     job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
     echo "Job 2 submitted with ID: $job2"
     
     echo "Submitting evaluation job for $force_type..."
-    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
-#    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "" "$work_dir")
+#    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
+    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "" "$work_dir")
 
     echo "Job 31 submitted with ID: $job31"
     
     echo "Submitting latent space extraction job for $force_type..."
-    job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "$job2" "$work_dir")
+#   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "$job2" "$work_dir")
+   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "" "$work_dir")
     echo "Job 32 submitted with ID: $job32"
     
     echo "Pipeline submitted successfully for $force_type!"

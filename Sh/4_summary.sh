@@ -44,7 +44,7 @@ for force in "${FORCE_TYPES[@]}"; do
             fi
 
             if [[ -f "$r2_file" ]]; then
-                r2=$(awk -F': ' '/Message Element/ {sum+=$2; count++} END {print (count>0 ? sum/count : "NA")}' "$r2_file")
+                r2=$(awk '/Message Element 1:/ {print $4}' "$r2_file")
                 echo -e "${force}\t${model}\t${r2}" >> "$R2_TABLE"
             fi
         fi

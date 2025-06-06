@@ -2,7 +2,7 @@
 #SBATCH --job-name=latent_exp
 #SBATCH --output=./Log/32output.log
 #SBATCH --error=./Log/32error.log
-#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=00:30:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
