@@ -40,37 +40,97 @@ def get_device(device_arg):
     return torch.device('cpu')
 
 
-def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0):
+def train(model, train_loader, val_loader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0, patience=52, model_type='L1'):
     device = get_device(device)  # Convert string to torch.device
     print(f"Using device: {device}")
     
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-#    loss_fn = torch.nn.L1Loss()
-    loss_fn = get_loss_function()
-    best_loss = float('inf')
-
-    for epoch in range(epochs):
-        total_loss = 0
+    
+    # Get loss function with model parameter for L1 regularization
+    if model_type == 'L1':
+        loss_fn = get_loss_function(reg_lambda=0.001)
+    else:
+        loss_fn = get_loss_function()
+    
+    best_val_loss = float('inf')
+    patience_counter = 0
+    
+    for epoch in range(start_epoch, epochs):
+        # Training phase
         model.train()
-        for batch in dataloader:
-            batch = batch.to(device)  # Move batch to GPU/CPU
+        total_train_loss = 0
+        for batch in train_loader:
+            batch = batch.to(device)
             optimizer.zero_grad()
             pred = model(batch.x, batch.edge_index)
-            loss = loss_fn(pred, batch.y)
+            # Pass model and batch parameters for regularization
+            if model_type in ['L1', 'KL']:
+                loss = loss_fn(pred, batch.y, model, batch)
+            else:
+                loss = loss_fn(pred, batch.y)
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
-        avg_loss = total_loss/len(dataloader)
-        print(f"Epoch {start_epoch+epoch+1}, Loss: {avg_loss:.6f}")
-
-        # Save checkpoint every epoch
-        if checkpoint_dir and epoch%10 == 0:
+            total_train_loss += loss.item()
+        avg_train_loss = total_train_loss/len(train_loader)
+        
+        # Validation phase
+        model.eval()
+        total_val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                batch = batch.to(device)
+                pred = model(batch.x, batch.edge_index)
+                # Pass model parameter for L1 regularization
+                if model_type in ['L1', 'KL']:
+                    loss = loss_fn(pred, batch.y, model, batch)
+                else:
+                    loss = loss_fn(pred, batch.y)
+                total_val_loss += loss.item()
+        avg_val_loss = total_val_loss/len(val_loader)
+        
+        print(f"Epoch {epoch+1}")
+        print(f"Training Loss: {avg_train_loss:.6f}")
+        print(f"Validation Loss: {avg_val_loss:.6f}")
+        
+        # Early stopping check
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            patience_counter = 0
+            # Save best model
+            if checkpoint_dir:
+                checkpoint = {
+                    'epoch': epoch+1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'train_loss': avg_train_loss,
+                    'val_loss': avg_val_loss,
+                    'hidden_dim': model.message_net[0].in_features // 2,
+                    'msg_dim': model.message_net[-1].out_features,
+                    'ndim': model.ndim,
+                    'dt': model.dt,
+                    'nt': model.nt
+                }
+                checkpoint_path = os.path.join(
+                    checkpoint_dir, 
+                    f"{model_prefix}_best.pt"
+                )
+                torch.save(checkpoint, checkpoint_path)
+                print(f"Saved best model checkpoint to {checkpoint_path}")
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping triggered after {epoch + 1} epochs")
+                break
+        
+        # Save regular checkpoint every 10 epochs
+        if checkpoint_dir and epoch % 10 == 0:
             checkpoint = {
-                'epoch': start_epoch+epoch+1,
+                'epoch': epoch+1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': avg_loss,
+                'train_loss': avg_train_loss,
+                'val_loss': avg_val_loss,
                 'hidden_dim': model.message_net[0].in_features // 2,
                 'msg_dim': model.message_net[-1].out_features,
                 'ndim': model.ndim,
@@ -79,7 +139,7 @@ def train(model, dataloader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=N
             }
             checkpoint_path = os.path.join(
                 checkpoint_dir, 
-                f"{model_prefix}_e{start_epoch+epoch+1}.pt"
+                f"{model_prefix}_e{epoch+1}.pt"
             )
             torch.save(checkpoint, checkpoint_path)
             print(f"Saved checkpoint to {checkpoint_path}")
@@ -121,10 +181,22 @@ if __name__ == "__main__":
     num_timesteps = int(loaded_data["num_timesteps"])
     spatial_dim = int(loaded_data["spatial_dim"])
     
-    # Prepare first graph for model initialization
-    test_graph = prepare_graph_from_simulation(0, 0)
+    # Create dataset with time step interval
+    dataset = NBodyDataset(positions_velocities, accelerations)
+    
+    # Split dataset into train and validation
+    train_dataset, val_dataset = NBodyDataset.split_dataset(
+        dataset
+    )
+    
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
 
-    # Model prefix for checkpoint naming (no timestamp)
+    # Model prefix for checkpoint naming
     model_prefix = f"{args.model_type}_h{args.hidden_dim}_m{args.msg_dim}_b{args.batch_size}"
 
     # Check for existing checkpoint
@@ -142,26 +214,19 @@ if __name__ == "__main__":
         ndim=spatial_dim
     )
 
-    # Load dataset & DataLoader
-    dataset = NBodyDataset(positions_velocities, accelerations)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-
     # Train model
     train(
         model=model,
-        dataloader=dataloader,
+        train_loader=train_loader,
+        val_loader=val_loader,
         epochs=args.epochs,
         lr=args.learning_rate,
         device=device,
         checkpoint_dir=args.checkpoint_dir,
         model_prefix=model_prefix,
-        start_epoch=current_epochs
+        start_epoch=current_epochs,
+        model_type=args.model_type
     )
-
-    # Test forward pass
-    model = model.to(device)  # Ensure model is on the correct device
-    test_graph = test_graph.to(device)  # Move test graph to the same device
-    output = model(test_graph.x, test_graph.edge_index)
 
     print("Training completed. Model checkpoints saved in:", args.checkpoint_dir)
 
