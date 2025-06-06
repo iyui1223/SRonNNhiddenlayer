@@ -97,7 +97,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
-    for sim in range(300): #num_simulations): @@@debug
+    for sim in range(num_simulations): # range(300):  @@@debug
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
@@ -190,7 +190,10 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
 
     sparsity_ratios = []
     for msgs in messages_over_time:
-        msg_columns = [f"e{k+1}" for k in range(msg_dim)]
+        if "bottleneck" in model_type:
+            msg_columns = [f"e{k+1}" for k in range(dim)]
+        else:
+            msg_columns = [f"e{k+1}" for k in range(msg_dim)]
         msg_array = np.array(msgs[msg_columns])
         
         # Calculate overall variance
@@ -224,7 +227,10 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
     for i, msgs in enumerate(messages_over_time):
         msgs = copy(msgs)
         msgs['bd'] = msgs.r + 1e-2
-        msg_columns = [f"e{k+1}" for k in range(msg_dim)]
+        if "bottleneck" in model_type:
+            msg_columns = [f"e{k+1}" for k in range(dim)]
+        else:
+            msg_columns = [f"e{k+1}" for k in range(msg_dim)]
         msg_array = np.array(msgs[msg_columns])
         msg_importance = msg_array.std(axis=0)
         most_important = np.argsort(msg_importance)[-dim:]
@@ -259,6 +265,14 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
     for i in range(dim):
         px = np.concatenate(all_force_proj[i]).reshape(-1, 1)  # Independent variable
         py = np.concatenate(all_msg_comp[i])                   # Dependent variable
+
+        # Use only within 4 sigma from the mean --  
+        # otherwise the linear fit is too sensitive to outliers
+        mask = (px[:, 0] >= -4) & (px[:, 0] <= 4) & (py >= -4) & (py <= 4)
+        # Apply mask
+        px = px[mask]
+        py = py[mask]
+
         reg = LinearRegression().fit(px, py)
         y_pred = reg.predict(px)
         r2 = r2_score(py, y_pred)

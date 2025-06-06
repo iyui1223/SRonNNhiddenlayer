@@ -6,7 +6,7 @@ import os
 
 def plot_table(df, title, filename):
     pivot_df = df.pivot(index='ForceType', columns='Model', values=title)
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(7, 5))
     sns.heatmap(pivot_df, annot=True, fmt=".3f", cmap="viridis", cbar_kws={"label": title})
     plt.title(title)
     plt.xticks(rotation=45, ha='right')

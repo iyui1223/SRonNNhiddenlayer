@@ -85,11 +85,11 @@ def evaluate_and_plot(
 
     # Plot trajectories only for 2D case
     if spatial_dim == 2:
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(5, 4))
         for i in range(num_bodies):
-            plt.plot(trajectory_true[:, i, 0], trajectory_true[:, i, 1], 'k--', linewidth=2.5, 
+            plt.plot(trajectory_true[:, i, 0], trajectory_true[:, i, 1], 'k--', linewidth=2.0, 
                     label=f'True {i}' if i == 0 else "")
-            plt.plot(trajectory_pred[:, i, 0], trajectory_pred[:, i, 1], 
+            plt.plot(trajectory_pred[:, i, 0], trajectory_pred[:, i, 1], linewidth=1.5, 
                     label=f'Pred {i}')
         plt.xlabel("x")
         plt.ylabel("y")
