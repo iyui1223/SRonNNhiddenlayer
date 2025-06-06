@@ -58,7 +58,7 @@ class GraphNetwork(MessagePassing):
         return self.update_net(torch.cat([x, aggr_out], dim=1))
 
 def get_loss_function():
-    return torch.nn.MSELoss()
+    return torch.nn.L1Loss()
 
 # below are all shared components regardless to model settings 
 def connect_all(num_nodes):
@@ -80,17 +80,21 @@ class NbodyGraph(GraphNetwork):
 #        return torch.sum(torch.abs(g.y - pred_dv_dt))
 
 class NBodyDataset(torch.utils.data.Dataset):
-    def __init__(self, positions_velocities, accelerations):
+    def __init__(self, positions_velocities, accelerations, time_step_interval=15):
         self.positions_velocities = positions_velocities
         self.accelerations = accelerations
         self.num_simulations, self.num_timesteps, self.num_bodies, _ = positions_velocities.shape
+        self.time_step_interval = time_step_interval
+        # Only use timesteps that are time_step_interval apart
+        self.valid_timesteps = list(range(0, self.num_timesteps, time_step_interval))
+        self.num_valid_timesteps = len(self.valid_timesteps)
 
     def __len__(self):
-        return self.num_simulations
+        return self.num_simulations * self.num_valid_timesteps
 
     def __getitem__(self, index):
-        sim_idx = index // self.num_timesteps
-        time_idx = index % self.num_timesteps
+        sim_idx = index // self.num_valid_timesteps
+        time_idx = self.valid_timesteps[index % self.num_valid_timesteps]
 
         x_np = self.positions_velocities[sim_idx, time_idx]
         x = torch.tensor(x_np, dtype=torch.float32).clone()
@@ -102,8 +106,43 @@ class NBodyDataset(torch.utils.data.Dataset):
 
         return Data(x=x, edge_index=edge_index, y=y)
 
+    @staticmethod
+    def split_dataset(dataset, train_ratio=0.9, random_seed=42):
+        """
+        Split the dataset into training and validation sets.
+        Args:
+            dataset: NBodyDataset instance
+            train_ratio: Ratio of training data (default: 0.9)
+            random_seed: Random seed for reproducibility
+        Returns:
+            train_dataset, val_dataset: Two NBodyDataset instances
+        """
+        # Set random seed for reproducibility
+        torch.manual_seed(random_seed)
+        np.random.seed(random_seed)
+        
+        # Calculate split indices
+        num_simulations = dataset.num_simulations
+        num_train = int(num_simulations * train_ratio)
+        
+        # Create random permutation of simulation indices
+        indices = torch.randperm(num_simulations)
+        train_indices = indices[:num_train]
+        val_indices = indices[num_train:]
+        
+        # Create new datasets with selected simulations
+        train_dataset = NBodyDataset(
+            dataset.positions_velocities[train_indices],
+            dataset.accelerations[train_indices])
+        
+        val_dataset = NBodyDataset(
+            dataset.positions_velocities[val_indices],
+            dataset.accelerations[val_indices])
+        
+        return train_dataset, val_dataset
+
 def find_latest_checkpoint(checkpoint_dir, model_type, hidden_dim, msg_dim, batch_size):
-    pattern = re.compile(rf"{model_type}_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\\d+.pt")
+    pattern = re.compile(rf"{model_type}_h{hidden_dim}_m{msg_dim}_b{batch_size}_e\d+.pt")
     max_epoch = 0
     latest_ckpt = None
     for fname in os.listdir(checkpoint_dir):
