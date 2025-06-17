@@ -4,9 +4,7 @@ set -e
 source "../Const/const_template.txt" # load the shared constants among experiment types
 
 # python venv
-source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
-conda init bash
-conda activate final
+source ~/venvs/final_clean/bin/activate
 
 SUMMARY_NAME="n${N_BODIES}_dim${DIMENSIONS}_nt${NUM_TIMESTEPS}"
 OUTPUT_DIR="${FIG_DIR}/Summary/${SUMMARY_NAME}/"

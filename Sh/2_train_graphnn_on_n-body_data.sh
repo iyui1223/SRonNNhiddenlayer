@@ -2,7 +2,7 @@
 #SBATCH --job-name=train_gnn
 #SBATCH --output=./Log/2output.log
 #SBATCH --error=./Log/2error.log
-#SBATCH --time=01:00:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=03:00:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -19,7 +19,7 @@ source "./const.txt"
 source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
 
 conda init bash
-conda activate final; module load gcc/11.3.0
+conda activate final_clean # ; module load gcc/11.3.0
 # module load cuda/12.4
 
 

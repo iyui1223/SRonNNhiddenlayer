@@ -7,6 +7,9 @@
 set -e
 source "../Const/const_template.txt" # load the shared constants among experiment types
 
+source ~/venvs/final_clean/bin/activate
+
+
 FIG_DIR="${ROOT_DIR}/Figs"
 DEST_DIR="${ROOT_DIR}/Viewer/force_message"
 

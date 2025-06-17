@@ -2,7 +2,7 @@
 #SBATCH --job-name=app_sr
 #SBATCH --output=./Log/6output.log
 #SBATCH --error=./Log/6error.log
-#SBATCH --time=00:10:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 

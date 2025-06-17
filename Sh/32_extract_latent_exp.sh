@@ -2,7 +2,7 @@
 #SBATCH --job-name=latent_exp
 #SBATCH --output=./Log/32output.log
 #SBATCH --error=./Log/32error.log
-#SBATCH --time=00:30:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=03:00:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -15,11 +15,7 @@ set -eox
 # Source constants from the work directory
 source "./const.txt"
 
-# Source conda
-source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
-
-conda init bash
-conda activate final; module load gcc/11.3.0
+source ~/venvs/final_clean/bin/activate
 
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"

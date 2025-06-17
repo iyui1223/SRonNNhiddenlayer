@@ -6,6 +6,16 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from pysr import PySRRegressor
+from sklearn.metrics import r2_score
+import torch
+from torch_geometric.data import Data
+from model_util import NbodyGraph
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+from copy import copy
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
 
 # Configure Julia environment
 #os.environ["PYTHON_JULIAPKG_PROJECT"] = str(pathlib.Path.home() / "julia_pysr/share/julia/environments/v1.9")
@@ -94,7 +104,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
-    for sim in range(2500): # range(num_simulations): # range(300):  @@@debug
+    for sim in range(500): # range(num_simulations): # range(300):  @@@debug
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
@@ -254,35 +264,94 @@ def process_data(model, model_path, data_path, ndim, dt, prev_data=None):
 
     return messages_over_time, data_base, model_base
 
-def apply_symbolic_regression(all_messages, expected_forces, dim, force_type, model_type):
+def select_top_variance_messages(all_messages, n_variance_dims):
     """
-    Apply symbolic regression to find relationships between messages and forces.
+    Select the top n_variance_dims message dimensions with highest variance.
     
     Args:
         all_messages: List of message arrays from the GNN
-        expected_forces: List of expected force arrays
+        n_variance_dims: Number of top variance dimensions to select
+    
+    Returns:
+        selected_messages: Array of selected message dimensions
+        selected_indices: Indices of selected dimensions
+    """
+    # Stack all messages into a single array
+    messages_array = np.vstack(all_messages)  # Shape: [total_edges, message_dim]
+    
+    # Calculate variance for each dimension
+    variances = np.var(messages_array, axis=0)
+    
+    # Get indices of top n_variance_dims dimensions
+    selected_indices = np.argsort(variances)[-n_variance_dims:]
+    
+    # Select only the top variance dimensions
+    selected_messages = messages_array[:, selected_indices]
+    
+    print(f"Selected message dimensions {selected_indices} with variances: {variances[selected_indices]}")
+    
+    return selected_messages, selected_indices
+
+def apply_symbolic_regression(all_messages, edge_dirs, param1, param2, distances, dim, force_type, model_type):
+    """
+    Apply symbolic regression to find relationships between edge directions + parameters + distances and top variance messages.
+    Predicts each selected message dimension separately.
+    
+    Args:
+        all_messages: List of message arrays from the GNN
+        edge_dirs: List of edge direction arrays
+        param1: List of param1 arrays
+        param2: List of param2 arrays
+        distances: List of distance arrays
         dim: Number of dimensions
         force_type: Type of force being analyzed
         model_type: Type of model used
     """
     
-    # Convert lists to numpy arrays
-    all_messages = np.vstack(all_messages)  # Shape: [total_edges, msg_dim]
-    expected_forces = np.vstack(expected_forces)  # Shape: [total_edges, dim]
+    # Determine number of top variance dimensions to select
+    # For 2D: n=2, for 3D: n=3
+    n_variance_dims = dim
     
-    # Calculate norms for magnitude analysis
-    message_norms = np.linalg.norm(all_messages, axis=1)
-    force_norms = np.linalg.norm(expected_forces, axis=1)
+    # Select top variance message dimensions
+    Y, selected_indices = select_top_variance_messages(all_messages, n_variance_dims)
+    
+    # Convert all input features to numpy arrays and ensure they have the same length
+    edge_dirs_array = np.vstack(edge_dirs)  # Shape: [total_edges, dim]
+    param1_array = np.concatenate(param1)  # Shape: [total_edges]
+    param2_array = np.concatenate(param2)  # Shape: [total_edges]
+    distances_array = np.concatenate(distances)  # Shape: [total_edges]
+    
+    # Verify all arrays have the same length
+    total_edges = len(distances_array)
+    assert len(param1_array) == total_edges, f"param1 length {len(param1_array)} != {total_edges}"
+    assert len(param2_array) == total_edges, f"param2 length {len(param2_array)} != {total_edges}"
+    assert len(edge_dirs_array) == total_edges, f"edge_dirs length {len(edge_dirs_array)} != {total_edges}"
+    assert len(Y) == total_edges, f"Y length {len(Y)} != {total_edges}"
+    
+    # Reshape 1D arrays to 2D for column_stack
+    param1_array = param1_array.reshape(-1, 1)  # Shape: [total_edges, 1]
+    param2_array = param2_array.reshape(-1, 1)  # Shape: [total_edges, 1]
+    distances_array = distances_array.reshape(-1, 1)  # Shape: [total_edges, 1]
+    
+    # Combine edge directions, parameters, and distances for X (input features)
+    X = np.column_stack([distances_array, edge_dirs_array, param1_array, param2_array])  # Shape: [total_edges, dim+3]
+    
+    print(f"X shape: {X.shape}, Y shape: {Y.shape}")
+    print(f"Using top {n_variance_dims} message dimensions: {selected_indices}")
+    print(f"Input features: distances, edge_dirs ({dim} dimensions), param1, param2")
+    
+    # Create message dimension names
+    message_names = [f"message_{i+1}" for i in range(n_variance_dims)]
     
     equations = []
     r2_scores = []
     
-    # Train for each force dimension
-    for i in range(dim):
-        print(f"\n--- Training for Force Dimension {i+1}/{dim} ---")
+    # Train for each message dimension separately
+    for i in range(n_variance_dims):
+        message_name = message_names[i]
+        print(f"\n--- Training for Message Dimension {i+1}/{n_variance_dims} ---")
         
-        y = expected_forces[:, i]
-        X = all_messages
+        y = Y[:, i]
         
         model = PySRRegressor(
             model_selection="best",  # Keep best single equation
@@ -309,12 +378,12 @@ def apply_symbolic_regression(all_messages, expected_forces, dim, force_type, mo
             r2 = r2_score(y, y_pred)
             r2_scores.append(r2)
             
-            print(f"Best equation for dimension {i+1}:")
+            print(f"Best equation for {message_name}:")
             print(f"Equation: {best_equation.equation}")
             print(f"R² score: {r2:.4f}")
             
         except Exception as e:
-            print(f"Error in dimension {i+1}: {str(e)}")
+            print(f"Error in message dimension {i+1}: {str(e)}")
             equations.append(None)
             r2_scores.append(None)
     
@@ -323,10 +392,11 @@ def apply_symbolic_regression(all_messages, expected_forces, dim, force_type, mo
         'force_type': force_type,
         'model_type': model_type,
         'dim': dim,
+        'n_variance_dims': n_variance_dims,
+        'selected_message_indices': selected_indices,
         'equations': equations,
         'r2_scores': r2_scores,
-        'message_norms': message_norms,
-        'force_norms': force_norms
+        'message_names': message_names
     }
     
     output_file = f"sr_results_{force_type}_{model_type}.npz"
@@ -350,21 +420,15 @@ def main():
         data = np.load(args.prev_data)
         sr_results = apply_symbolic_regression(
             data['all_messages'],
-            data['expected_forces'],
+            data['edge_dirs'],
+            data['param1'],
+            data['param2'],
+            data['distances'],
             args.ndim,
             data['force_type'],
             data['model_type']
         )
     else:
-        import torch
-        import matplotlib.pyplot as plt
-        from scipy.optimize import minimize
-        from copy import copy
-        from torch_geometric.data import Data
-        from model_util import NbodyGraph
-        from sklearn.linear_model import LinearRegression
-        from sklearn.metrics import r2_score
-
         # Initialize model
         hidden_dim, msg_dim = parse_model_params(args.model_path)
         model = NbodyGraph(
@@ -401,7 +465,10 @@ def main():
         # Apply symbolic regression
         sr_results = apply_symbolic_regression(
             data['all_messages'],
-            data['expected_forces'],
+            data['edge_dirs'],
+            data['param1'],
+            data['param2'],
+            data['distances'],
             args.ndim,
             data['force_type'],
             data['model_type']
@@ -411,10 +478,12 @@ def main():
     print("\nSymbolic Regression Summary:")
     print(f"Force Type: {sr_results['force_type']}")
     print(f"Model Type: {sr_results['model_type']}")
-    print("\nEquations by dimension:")
-    for i, (eq, r2) in enumerate(zip(sr_results['equations'], sr_results['r2_scores'])):
+    print(f"Using top {sr_results['n_variance_dims']} message dimensions: {sr_results['selected_message_indices']}")
+    
+    print("\nEquations by message dimension:")
+    for i, (eq, r2, message_name) in enumerate(zip(sr_results['equations'], sr_results['r2_scores'], sr_results['message_names'])):
         if eq is not None:
-            print(f"Dimension {i+1}:")
+            print(f"{message_name}:")
             print(f"  Equation: {eq.equation}")
             print(f"  R² score: {r2:.4f}")
 
