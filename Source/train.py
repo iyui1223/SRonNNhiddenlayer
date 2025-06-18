@@ -40,7 +40,7 @@ def get_device(device_arg):
     return torch.device('cpu')
 
 
-def train(model, train_loader, val_loader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0, patience=52, model_type='L1'):
+def train(model, train_loader, val_loader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0, patience=1000, model_type='L1'):
     device = get_device(device)  # Convert string to torch.device
     print(f"Using device: {device}")
     
@@ -49,7 +49,7 @@ def train(model, train_loader, val_loader, epochs=10, lr=0.001, device='cpu', ch
     
     # Get loss function with model parameter for L1 regularization
     if model_type == 'L1':
-        loss_fn = get_loss_function(reg_lambda=0.001)
+        loss_fn = get_loss_function(reg_lambda=0.01)
     else:
         loss_fn = get_loss_function()
     

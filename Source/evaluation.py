@@ -12,7 +12,7 @@ def connect_all(num_nodes):
 
 def calculate_metrics(trajectory_true: np.ndarray, trajectory_pred: np.ndarray) -> Dict[str, np.ndarray]:
     """
-    Calculate RMSE and ACC metrics between true and predicted trajectories for each timestep.
+    Calculate RMSE and ACC (Anomaly Correlation Coefficient) metrics between true and predicted trajectories for each timestep.
     
     Args:
         trajectory_true: True trajectories of shape (num_timesteps, num_bodies, spatial_dim)
@@ -25,11 +25,27 @@ def calculate_metrics(trajectory_true: np.ndarray, trajectory_pred: np.ndarray) 
     squared_errors = np.square(trajectory_true - trajectory_pred)
     rmse = np.sqrt(np.mean(squared_errors, axis=(1, 2)))  # mean over bodies and spatial dimensions
     
-    # Calculate ACC (Accuracy) for each timestep
-    # ACC = 1 - (||y_pred - y_true||_2 / ||y_true||_2)
-    numerator = np.linalg.norm(trajectory_pred - trajectory_true, axis=2)  # L2 norm over spatial dimensions
-    denominator = np.linalg.norm(trajectory_true, axis=2)  # L2 norm over spatial dimensions
-    acc = 1 - np.mean(numerator / (denominator + 1e-10), axis=1)  # mean over bodies
+    # Calculate ACC (Anomaly Correlation Coefficient) for each timestep
+    # ACC = correlation between predicted and true anomalies
+    # Anomaly = value - mean over time
+    num_timesteps = trajectory_true.shape[0]
+    acc = np.zeros(num_timesteps)
+    
+    for t in range(num_timesteps):
+        # Calculate anomalies (deviation from time mean)
+        true_anomaly = trajectory_true[t] - np.mean(trajectory_true, axis=0)
+        pred_anomaly = trajectory_pred[t] - np.mean(trajectory_pred, axis=0)
+        
+        # Flatten spatial dimensions for correlation calculation
+        true_flat = true_anomaly.reshape(-1)
+        pred_flat = pred_anomaly.reshape(-1)
+        
+        # Calculate correlation coefficient
+        if np.std(true_flat) > 1e-10 and np.std(pred_flat) > 1e-10:
+            correlation = np.corrcoef(true_flat, pred_flat)[0, 1]
+            acc[t] = correlation if not np.isnan(correlation) else 0.0
+        else:
+            acc[t] = 0.0
     
     return {
         'rmse': rmse,
@@ -88,7 +104,7 @@ def evaluate_and_plot(
         plt.figure(figsize=(5, 4))
         for i in range(num_bodies):
             plt.plot(trajectory_true[:, i, 0], trajectory_true[:, i, 1], 'k--', linewidth=2.0, 
-                    label=f'True {i}' if i == 0 else "")
+                    label=f'True' if i == 0 else "")
             plt.plot(trajectory_pred[:, i, 0], trajectory_pred[:, i, 1], linewidth=1.5, 
                     label=f'Pred {i}')
         plt.xlabel("x")

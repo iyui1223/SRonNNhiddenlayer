@@ -4,12 +4,12 @@
 export ROOT_DIR="/home/yi260/final_project"
 
 # Define forcing types
-# FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
-FORCE_TYPES=("r2")
+FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
+#FORCE_TYPES=("r2")
 
 # define model or loss types
-# MODEL_TYPES=("standard" "bottleneck" "L1" "KL")
-MODEL_TYPES=("L1" "KL")
+MODEL_TYPES=("standard" "bottleneck" "L1" "KL")
+#MODEL_TYPES=("standard")
 
 # Function to create work directory and setup for a forcing type
 setup_force_type() {
@@ -19,7 +19,6 @@ setup_force_type() {
     
     # Create work directory
     mkdir -p "$work_dir"
-    mkdir -p "${work_dir}/Log"
     
     # Copy template const.txt to work directory
     cp "${ROOT_DIR}/Const/const_template.txt" "${work_dir}/const.txt"
@@ -63,18 +62,18 @@ run_pipeline_for_type() {
     
     echo "Submitting training job for $force_type..."
 #    job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "$job1" "$work_dir")
-#     job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
+     job2=$(submit_job "${ROOT_DIR}/Sh/2_train_graphnn_on_n-body_data.sh" "" "$work_dir")
     echo "Job 2 submitted with ID: $job2"
     
     echo "Submitting evaluation job for $force_type..."
-#    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
+    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "$job2" "$work_dir")
 #    job31=$(submit_job "${ROOT_DIR}/Sh/31_evaluation.sh" "" "$work_dir")
 
     echo "Job 31 submitted with ID: $job31"
     
     echo "Submitting latent space extraction job for $force_type..."
-#   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "$job2" "$work_dir")
-   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "" "$work_dir")
+   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "$job2" "$work_dir")
+#   job32=$(submit_job "${ROOT_DIR}/Sh/32_extract_latent_exp.sh" "" "$work_dir")
     echo "Job 32 submitted with ID: $job32"
     
     echo "Pipeline submitted successfully for $force_type!"

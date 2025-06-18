@@ -4,22 +4,21 @@
 export ROOT_DIR="/home/yi260/final_project"
 
 # Define forcing types
-#FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
-FORCE_TYPES=("spring" "damped")
+FORCE_TYPES=("spring" "charge" "damped" "disc" "r1" "r2")
+# FORCE_TYPES=("spring" "damped")
 
 # define model or loss types
-#MODEL_TYPES=("standard" "bottleneck" "L1" "KL")
-MODEL_TYPES=("L1")
+MODEL_TYPES=("standard" "bottleneck" "L1" "KL")
+#MODEL_TYPES=("L1")
 
 # Function to create work directory and setup for a forcing type
 setup_force_type() {
     local force_type=$1
     local model_type=$2
-    local work_dir="${ROOT_DIR}/Work/${force_type}_${model_type}"
+    local work_dir="${ROOT_DIR}/SR_Work/${force_type}_${model_type}"
     
     # Create work directory
     mkdir -p "$work_dir"
-    mkdir -p "${work_dir}/Log"
     
     # Copy template const.txt to work directory
     cp "${ROOT_DIR}/Const/const_template.txt" "${work_dir}/const.txt"

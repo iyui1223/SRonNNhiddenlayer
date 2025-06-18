@@ -2,8 +2,8 @@
 #SBATCH --job-name=n-body-simulation
 #SBATCH --output=./Log/1output.log
 #SBATCH --error=./Log/1error.log
-#SBATCH --time=00:07:00               # Max execution time (HH:MM:SS)
-#SBATCH --mem=4G
+#SBATCH --time=00:30:00               # Max execution time (HH:MM:SS)
+#SBATCH --mem=16G
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
 

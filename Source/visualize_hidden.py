@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from celluloid import Camera
+# from celluloid import Camera
 from scipy.optimize import minimize
 from copy import copy
 from torch_geometric.data import Data
@@ -97,7 +97,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
-    for sim in range(num_simulations): # range(300):  @@@debug
+    for sim in range(num_simulations): # range(num_simulations): 300 @@@debug
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
@@ -266,7 +266,7 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
         px = np.concatenate(all_force_proj[i]).reshape(-1, 1)  # Independent variable
         py = np.concatenate(all_msg_comp[i])                   # Dependent variable
 
-        # Use only within 4 sigma from the mean --  
+        # Use only within 4 sigma from the mean (2 dim), and 1 sigma from the mean--  
         # otherwise the linear fit is too sensitive to outliers
         mask = (px[:, 0] >= -4) & (px[:, 0] <= 4) & (py >= -4) & (py <= 4)
         # Apply mask
