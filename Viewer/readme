@@ -1,0 +1,20 @@
+Usage of quick_viewer.html
+    quick_viewer.html is a lightweight image viewing system written in HTML and JavaScript. It allows users to group and display image files based on user-specified parameters, assuming a consistent file naming and folder structure.
+
+Requirements
+    A local or remote web server is required to run quick_viewer.html.
+    Works well with tools like Visual Studio Code Remote or any environment that supports serving files over HTTP.
+
+Setup Instructions
+    Place quick_viewer.html at the top-level directory containing your image files.
+    Ensure that your image files follow a regular naming pattern and a consistent folder hierarchy (e.g., type/model/image_name.png).
+
+Launch a simple web server from the same directory:
+    python -m http.server 8000
+
+Open the following URL in your browser: http://localhost:8000/
+
+Notes
+    Works both locally and on remote servers (with port forwarding or web server setup).
+    Make sure the directory structure and naming are compatible with how quick_viewer.html parses and displays image groups.
+
