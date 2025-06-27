@@ -11,7 +11,7 @@ import multiprocessing
 from functools import partial
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
-from celluloid import Camera
+# from celluloid import Camera
 s_ = onp.s_
 tqdm = lambda _: _
 
@@ -273,7 +273,7 @@ class SimulationDataset(object):
         else:
             if sim in ['string', 'string_ball']: raise NotImplementedError
             fig = plt.figure()
-            camera = Camera(fig)
+#            camera = Camera(fig)
             d_idx = 20
             for t_idx in range(d_idx, len(times), d_idx):
                 start = max([0, t_idx-300])
@@ -287,6 +287,6 @@ class SimulationDataset(object):
                     plt.scatter(cx_times[:, j, 0], cx_times[:, j, 1], color=rgba, s=s_size)
 #                 plt.xlim(-10, 10)
 #                 plt.ylim(-10, 10)
-                camera.snap()
+#                camera.snap()
             from IPython.display import HTML
-            return HTML(camera.animate().to_jshtml())
+#            return HTML(camera.animate().to_jshtml())
