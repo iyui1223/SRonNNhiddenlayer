@@ -97,8 +97,8 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
-    for sim in range(num_simulations): # range(num_simulations): 300 @@@debug
-        for t in range(1):  # Only take first timestep
+    for sim in range(10): # range(num_simulations): 300 @@@debug
+        for t in range(250):  # Take ALL timesteps
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)
             edge_index = connect_all(num_bodies)
@@ -183,11 +183,9 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
     if dim == 1:
         axes = [axes]
 
-    all_force_proj = [[] for _ in range(dim)]
-    all_msg_comp = [[] for _ in range(dim)]
-
     force_fnc = get_force_function(force_type, dim)
 
+    # --- Sparsity analysis (keep as is, per simulation) ---
     sparsity_ratios = []
     for msgs in messages_over_time:
         if "bottleneck" in model_type:
@@ -195,105 +193,85 @@ def scatter_all_force_message(messages_over_time, msg_dim, dim=2, data_path=None
         else:
             msg_columns = [f"e{k+1}" for k in range(msg_dim)]
         msg_array = np.array(msgs[msg_columns])
-        
-        # Calculate overall variance
         overall_var = np.var(msg_array, axis=0)
         overall_var_sum = np.sum(overall_var)
-        
-        # Calculate top dim messages variance
         msg_importance = np.var(msg_array, axis=0)
         most_important = np.argsort(msg_importance)[-dim:]
         top_msgs_var = np.var(msg_array[:, most_important], axis=0)
         top_msgs_var_sum = np.sum(top_msgs_var)
-        
-        # Calculate sparsity ratio
         sparsity_ratio = top_msgs_var_sum / overall_var_sum
         sparsity_ratios.append(sparsity_ratio)
-    
-    # Calculate mean sparsity ratio
     mean_sparsity = np.mean(sparsity_ratios)
-    
-    # Save sparsity information
     sparsity_file = "message_sparsity.txt"
     with open(sparsity_file, 'w') as f:
         f.write(f"Mean sparsity ratio: {mean_sparsity:.4f}\n")
         f.write(f"Number of simulations analyzed: {len(sparsity_ratios)}\n")
         f.write(f"Top {dim} messages variance / Overall messages variance\n")
         f.write(f"Individual simulation ratios:\n")
-    
     print(f"Sparsity analysis saved to {sparsity_file}")
 
+    # --- NEW: Use all messages at once for the rest ---
+    all_msgs_df = pd.concat(messages_over_time, ignore_index=True)
+    all_msgs_df['bd'] = all_msgs_df.r + 1e-2
+    if "bottleneck" in model_type:
+        msg_columns = [f"e{k+1}" for k in range(dim)]
+    else:
+        msg_columns = [f"e{k+1}" for k in range(msg_dim)]
+    msg_array = np.array(all_msgs_df[msg_columns])
+    msg_importance = msg_array.std(axis=0)
+    most_important = np.argsort(msg_importance)[-dim:]
+    msgs_to_compare = msg_array[:, most_important]
+    msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
+    expected_forces = force_fnc(all_msgs_df)
 
-    for i, msgs in enumerate(messages_over_time):
-        msgs = copy(msgs)
-        msgs['bd'] = msgs.r + 1e-2
-        if "bottleneck" in model_type:
-            msg_columns = [f"e{k+1}" for k in range(dim)]
-        else:
-            msg_columns = [f"e{k+1}" for k in range(msg_dim)]
-        msg_array = np.array(msgs[msg_columns])
-        msg_importance = msg_array.std(axis=0)
-        most_important = np.argsort(msg_importance)[-dim:]
-        msgs_to_compare = msg_array[:, most_important]
-        msgs_to_compare = (msgs_to_compare - np.mean(msgs_to_compare, axis=0)) / np.std(msgs_to_compare, axis=0)
-
-        expected_forces = force_fnc(msgs)
-
-        def linear_transformation(alpha):
-            lincombs = []
-            for i in range(dim):
-                lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
-                lincombs.append(lin)
-            return np.mean([percentile_sum((msgs_to_compare[:, i] - lincombs[i]) ** 2) for i in range(dim)])
-
-        def out_linear_transformation(alpha):
-            lincombs = []
-            for i in range(dim):
-                lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
-                lincombs.append(lin)
-            return lincombs
-
-        init_params = np.ones(dim * (dim + 1))
-        min_result = minimize(linear_transformation, init_params, method='Powell')
-        lincombs = out_linear_transformation(min_result.x)
-
+    def linear_transformation(alpha):
+        lincombs = []
         for i in range(dim):
-            all_force_proj[i].append(lincombs[i])
-            all_msg_comp[i].append(msgs_to_compare[:, i])
+            lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
+            lincombs.append(lin)
+        return np.mean([percentile_sum((msgs_to_compare[:, i] - lincombs[i]) ** 2) for i in range(dim)])
+
+    def out_linear_transformation(alpha):
+        lincombs = []
+        for i in range(dim):
+            lin = sum(alpha[i * dim + j] * expected_forces[:, j] for j in range(dim)) + alpha[dim * dim + i]
+            lincombs.append(lin)
+        return lincombs
+
+    init_params = np.ones(dim * (dim + 1))
+    min_result = minimize(linear_transformation, init_params, method='Powell')
+    lincombs = out_linear_transformation(min_result.x)
+
+    all_force_proj = [[] for _ in range(dim)]
+    all_msg_comp = [[] for _ in range(dim)]
+    for i in range(dim):
+        all_force_proj[i].append(lincombs[i])
+        all_msg_comp[i].append(msgs_to_compare[:, i])
 
     r2_scores = []
     for i in range(dim):
         px = np.concatenate(all_force_proj[i]).reshape(-1, 1)  # Independent variable
         py = np.concatenate(all_msg_comp[i])                   # Dependent variable
-
-        # Use only within 4 sigma from the mean (2 dim), and 1 sigma from the mean--  
-        # otherwise the linear fit is too sensitive to outliers
-        mask = (px[:, 0] >= -4) & (px[:, 0] <= 4) & (py >= -4) & (py <= 4)
-        # Apply mask
+        mask = (px[:, 0] >= -1) & (px[:, 0] <= 1) & (py >= -1) & (py <= 1)
         px = px[mask]
         py = py[mask]
-
         reg = LinearRegression().fit(px, py)
         y_pred = reg.predict(px)
         r2 = r2_score(py, y_pred)
         r2_scores.append(r2)
-
         axes[i].scatter(px, py, s=1, alpha=0.1, color='black')
         axes[i].plot(px, y_pred, color='red', linewidth=1.0, label=f"R2={r2:.4f}")
         axes[i].set_xlabel('Linear combination of forces')
         axes[i].set_ylabel(f'Message Element {i+1}')
-        axes[i].set_title(
-            f"Message {i+1} vs Force", fontsize=10)
+        axes[i].set_title(f"Message {i+1} vs Force", fontsize=10)
         fig.text(0.01, 0.99, f"Sim: {sim_type}\nModel: {model_type}", ha='left', va='top', fontsize=6)
         axes[i].grid(True)
         axes[i].set_xlim(-1, 1)
         axes[i].set_ylim(-1, 1)
         axes[i].legend()
-
     plt.tight_layout()
     plt.savefig("force_message_relation.png")
     plt.show()
-
     r2_file = "message_r2_scores.txt"
     with open(r2_file, 'w') as f:
         f.write("R2 Scores for Linear Fit between Force Projection and Message Elements:\n")
