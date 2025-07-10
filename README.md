@@ -43,8 +43,8 @@ The project aims to extract interpretable relationships between the **hidden lay
 
 1. Clone the repository: # Replace XXXX with your own token
 ```bash
-git clone https://oauth2:XXXX@gitlab.developers.cam.ac.uk/phy/data-intensive-science-mphil/assessments/projects/yi260
-cd yi260
+git clone https://github.com/iyui1223/SRonNNhiddenlayer.git
+cd SRonNNhiddenlayer
 ```
 
 2. Install dependencies:
@@ -103,9 +103,9 @@ cd Viewer/
 ```bash
 python -m http.server 8000
 ```
-# Then open http://localhost:8000 in your browser
+Then open http://localhost:8000 in your browser
 
-All results follow this naming convention:
+## All results follow this naming convention:
 
 ```bash
 DATA_NAME = "${SIM_TYPE}_n${N_BODIES}_dim${DIMENSIONS}_nt${NUM_TIMESTEPS}"
@@ -115,8 +115,8 @@ MODEL_NAME = "${MODEL_TYPE}_h${HIDDEN_DIM}_m${MSG_DIM}_b${BATCH_SIZE}_e${EPOCHS}
 For example, a model trained with:
 
 - Standard loss
-- 256 hidden features
-- 128 message features
+- 32 hidden features
+- 16 message features
 - Batch size 16
 - 1 epoch
 

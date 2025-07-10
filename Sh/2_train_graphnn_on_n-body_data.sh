@@ -2,7 +2,7 @@
 #SBATCH --job-name=train_gnn
 #SBATCH --output=./Log/2output.log
 #SBATCH --error=./Log/2error.log
-#SBATCH --time=00:10:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=02:00:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=sapphire
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -15,13 +15,7 @@ set -eox
 # Source constants from the work directory
 source "./const.txt"
 
-# Source conda
-source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
-
-conda init bash
-conda activate final_clean # ; module load gcc/11.3.0
-# module load cuda/12.4
-
+source ${SOURCE_ENV}
 
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${MODELS_DIR}/${DATA_NAME/.npz/}"
