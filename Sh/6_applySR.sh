@@ -2,7 +2,7 @@
 #SBATCH --job-name=app_sr
 #SBATCH --output=./Log/6output.log
 #SBATCH --error=./Log/6error.log
-#SBATCH --time=01:00:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -26,7 +26,7 @@ source "./const.txt"
 #export LD_LIBRARY_PATH=~/julia_pysr/lib:$LD_LIBRARY_PATH
 
 # Activate Python environment
-source ~/venvs/pysr/bin/activate
+source ${SOURCE_ENV_PYSR}
 
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"

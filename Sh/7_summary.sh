@@ -1,10 +1,11 @@
 #!/bin/bash
+# copy the outputs from symbolic regression to the appropriate locations
 set -e
 
 source "../Const/const_template.txt" # load the shared constants among experiment types
 
 # python venv
-source ~/venvs/final_clean/bin/activate
+source ${SOURCE_ENV}
 
 ANALYSIS_OUTPUT_DIR="${ROOT_DIR}/Data/analysis_output"
 mkdir -p "$ANALYSIS_OUTPUT_DIR"

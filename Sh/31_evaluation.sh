@@ -15,7 +15,7 @@ set -eox
 # Source constants from the work directory
 source "./const.txt"
 
-source ~/venvs/final_clean/bin/activate
+source ${SOURCE_ENV}
 
 # Cp source files
 cp "${SOURCE_DIR}/evaluation.py" .

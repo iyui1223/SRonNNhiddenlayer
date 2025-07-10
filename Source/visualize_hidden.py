@@ -97,7 +97,7 @@ def create_graphs(npz_path):
         return torch.cat([indices, indices.flip(0)], dim=1)
 
     graphs = []
-    for sim in range(num_simulations): # range(num_simulations): 300 @@@debug
+    for sim in range(num_simulations): # 300 @@@debug
         for t in range(1):  # Only take first timestep
             x_np = positions_velocities[sim, t]
             x = torch.tensor(x_np, dtype=torch.float32)

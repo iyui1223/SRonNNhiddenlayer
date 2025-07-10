@@ -26,22 +26,22 @@ def calculate_metrics(trajectory_true: np.ndarray, trajectory_pred: np.ndarray) 
     rmse = np.sqrt(np.mean(squared_errors, axis=(1, 2)))  # mean over bodies and spatial dimensions
     
     # Calculate ACC (Anomaly Correlation Coefficient) for each timestep
-    # ACC = correlation between predicted and true anomalies
-    # Anomaly = value - mean over time
+    # ACC measures how well predicted values correlate with true values at each timestep
+    # This should start near 1 and decrease as prediction errors accumulate
     num_timesteps = trajectory_true.shape[0]
     acc = np.zeros(num_timesteps)
     
     for t in range(num_timesteps):
-        # Calculate anomalies (deviation from time mean)
-        true_anomaly = trajectory_true[t] - np.mean(trajectory_true, axis=0)
-        pred_anomaly = trajectory_pred[t] - np.mean(trajectory_pred, axis=0)
+        # Get true and predicted values at this timestep
+        true_t = trajectory_true[t]  # shape: (num_bodies, spatial_dim)
+        pred_t = trajectory_pred[t]  # shape: (num_bodies, spatial_dim)
         
-        # Flatten spatial dimensions for correlation calculation
-        true_flat = true_anomaly.reshape(-1)
-        pred_flat = pred_anomaly.reshape(-1)
+        # Flatten to get all values at this timestep
+        true_flat = true_t.reshape(-1)
+        pred_flat = pred_t.reshape(-1)
         
-        # Calculate correlation coefficient
-        if np.std(true_flat) > 1e-10 and np.std(pred_flat) > 1e-10:
+        # Calculate correlation coefficient between true and predicted values
+        if len(true_flat) > 1 and np.std(true_flat) > 1e-10 and np.std(pred_flat) > 1e-10:
             correlation = np.corrcoef(true_flat, pred_flat)[0, 1]
             acc[t] = correlation if not np.isnan(correlation) else 0.0
         else:

@@ -1,13 +1,10 @@
 #!/bin/bash
-# relocate the force_message files to the viewer directory
-# Once is done, the quick_viewer.html can be used to view the force_message files by running:
-# python3 -m http.server 8000 
-# at the Viewer directory and accessing the url http://localhost:8000/quick_viewer.html
+# relocate the image files to the viewer directory
 
 set -e
 source "../Const/const_template.txt" # load the shared constants among experiment types
 
-source ~/venvs/final_clean/bin/activate
+source ${SOURCE_ENV}
 
 
 FIG_DIR="${ROOT_DIR}/Figs"

@@ -2,7 +2,7 @@
 #SBATCH --job-name=latent_exp
 #SBATCH --output=./Log/32output.log
 #SBATCH --error=./Log/32error.log
-#SBATCH --time=06:00:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=00:15:00               # Max execution time (HH:MM:SS)
 #SBATCH --partition=icelake             
 #SBATCH -A MPHIL-DIS-SL2-CPU
 
@@ -15,7 +15,7 @@ set -eox
 # Source constants from the work directory
 source "./const.txt"
 
-source ~/venvs/final_clean/bin/activate
+source ${SOURCE_ENV}
 
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}"

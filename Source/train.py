@@ -39,7 +39,7 @@ def get_device(device_arg):
         return torch.device('cuda')
     return torch.device('cpu')
 
-
+@profileit("cpu")
 def train(model, train_loader, val_loader, epochs=10, lr=0.001, device='cpu', checkpoint_dir=None, model_prefix='', start_epoch=0, patience=1000, model_type='L1'):
     device = get_device(device)  # Convert string to torch.device
     print(f"Using device: {device}")

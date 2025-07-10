@@ -2,7 +2,7 @@
 #SBATCH --job-name=n-body-simulation
 #SBATCH --output=./Log/1output.log
 #SBATCH --error=./Log/1error.log
-#SBATCH --time=00:30:00               # Max execution time (HH:MM:SS)
+#SBATCH --time=00:05:00               # Max execution time (HH:MM:SS)
 #SBATCH --mem=16G
 #SBATCH --partition=icelake
 #SBATCH -A MPHIL-DIS-SL2-CPU
@@ -16,27 +16,7 @@ set -eox
 # Source constants from the work directory
 source "./const.txt"
 
-# Check if conda is available
-if ! command -v conda &> /dev/null; then
-    echo "Error: conda is not installed or not in PATH"
-    exit 1
-fi
-
-# Source conda
-source "/usr/local/software/archive/linux-scientific7-x86_64/gcc-9/miniconda3-4.7.12.1-rmuek6r3f6p3v6fdj7o2klyzta3qhslh/etc/profile.d/conda.sh"
-
-# Initialize conda and activate environment
-conda init bash
-if ! conda activate final; then
-    echo "Error: Failed to activate conda environment 'final'"
-    exit 1
-fi
-
-# Load gcc module
-if ! module load gcc/11.3.0; then
-    echo "Error: Failed to load gcc/11.3.0 module"
-    exit 1
-fi
+source ${SOURCE_ENV}
 
 # Create necessary directories
 mkdir -p "${ROOT_DIR}/${WORK_DIR}" "${LOG_DIR}" "${DATA_DIR}"
@@ -74,6 +54,3 @@ echo "[$(date)] Simulation completed successfully."
 
 # Cleanup: Remove temporary working directory
 cd "${ROOT_DIR}"
-# do not remove temporary dir for debugging
-# rm -rf "${ROOT_DIR}/${WORK_DIR}"
-# echo "[$(date)] Temporary work directory removed."
